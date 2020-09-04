@@ -18,11 +18,11 @@ SRC_PATH   := .
 TARGET     := robot
 
 ## get all source files
-SRCS       += $(wildcard $(SRC_PATH)/*.c $(SRC_PATH)/*.cpp $(SRC_PATH)/rt_type/*.c)
+SRCS       += $(wildcard $(SRC_PATH)/*.c $(SRC_PATH)/*.cpp )
+SRCS2      += $(wildcard $(SRC_PATH)/rt_type/*.c)
 
 #OBJS       := $(SRCS:.c=.o)
-OBJS       := $(wildcard ./*.o)
-
+OBJS := $(wildcard $(SRC_PATH)/*.o)
 
 ## need libs, add at here
 LIBS := pthread m native pthread_rt xenomai rt ethercat_rtdm
@@ -48,13 +48,12 @@ LDFLAGS += $(foreach lib, $(LIBRARY_PATH), -L$(lib))
 ## get all librarys
 LDFLAGS += $(foreach lib, $(LIBS), -l$(lib))
 
-
-all: clean build
+all: build
 
 build:
-	$(CPP) -c $(CFLAGS) $(SRCS)
+	$(CPP) -c $(CFLAGS) $(SRCS) 
 	$(CPP) $(CFLAGS) -o $(TARGET) $(OBJS) $(LDFLAGS)
-	$(RM) $(OBJS)
+#	$(RM) $(OBJS)
 
 clean:
 	$(RM) $(OBJS) $(TARGET)

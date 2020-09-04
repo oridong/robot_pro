@@ -8,6 +8,8 @@
 #include "control.h"
 #include "rt_type/tmwtypes.h"
 
+# define M_PI 3.14159265358979323846
+
 /*
  * 功能： 大范围关节角转动（关节空间）
  * 输入-------------angleInit：初始关节角1x7
