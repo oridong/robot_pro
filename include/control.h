@@ -13,6 +13,7 @@
 #include <rtdm/rtdm.h>
 #include <signal.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
@@ -72,6 +73,13 @@ typedef struct EC_position
     uint16_t buspos;
 } EC_position;
 
+/* 插值 结构体 */
+typedef struct 
+{
+    double para[17];
+    double time;
+}splan;
+
 /* Elmo电机结构体 */
 typedef struct 
 {
@@ -88,6 +96,8 @@ typedef struct
     int exp_position;   /* expect position in cnt */
     uint32_t ain;       // 模拟输入2 
     double this_send;
+
+    splan sp;
 
     std::vector<int> plan;
     double plan_param[4];
@@ -111,13 +121,6 @@ typedef struct
     uint32_t status;
     uint32_t sampCount;
 }ft_sensor;
-
-/* 插值 结构体 */
-typedef struct 
-{
-    double para[17];
-    double time;
-}splan;
 
 /* 身体部件 结构体 */
 typedef struct 

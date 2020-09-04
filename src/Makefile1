@@ -1,0 +1,27 @@
+CC = x86_64-linux-gnu-g++ -g
+INCPATH = -I/usr/xenomai/include -I/usr/xenomai/include -I/usr/xenomai/include/posix -I../include -Wl,@/usr/xenomai/lib/posix.wrappers
+
+LIBS = -lnative -L/usr/xenomai/lib -lpthread_rt -lxenomai -lpthread -lrt -lm -L/home/igh/etherlabmaster-code/lib/.libs -lethercat_rtdm
+ 
+CFLAGS = -D_GNU_SOURCE -D_REENTRANT -D__XENO__ 
+
+# Files 
+SOURCES2 = control
+SOURCES1 = communication
+
+TARGET = robot
+
+# Build rules 
+$(TARGET): $(SOURCES1).o $(SOURCES2).o
+	$(CC) $(LFLAGS) -o $(TARGET) $(SOURCES1).o $(SOURCES2).o $(LIBS) 
+
+# Compile 
+$(SOURCES2).o : $(SOURCES2).cpp
+	$(CC) $(INCPATH) $(CFLAGS) -o $(SOURCES2).o -c $(SOURCES2).cpp -lm
+
+# Compile 
+$(SOURCES1).o : $(SOURCES1).cpp
+	$(CC) $(INCPATH) $(CFLAGS) -o $(SOURCES1).o -c $(SOURCES1).cpp -lm
+
+clean: 
+	rm $(TARGET) *.o 

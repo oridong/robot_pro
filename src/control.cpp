@@ -135,10 +135,9 @@ ec_sync_info_t ss_pos[] = { /* slave_sync */
     {0xff}
 };
 
-/*****************************************************************************
- * Ethercat 检查
- ****************************************************************************/
-
+/*
+ * Ethercat 检查函数
+ */
 void rt_check_domain_state(ec_domain_t *a, ec_domain_state_t result)
 {
     ec_domain_state_t ds = {};
@@ -190,9 +189,9 @@ void nsleep(long nano)
     nanosleep(&sleeptime, NULL);
 }
 
-/*****************************************************************************
+/*
  * 初始化插值位置滤波器参数
- ****************************************************************************/
+ */
 void ip_param_init()
 {
     printf("位置滤波器参数：");
@@ -224,12 +223,10 @@ void ip_param_init()
     printf("\n");
 }
 
-/*****************************************************************************
-/* 功能： 将左臂初始化为位置模式 
-*  输入：记录结构体
-*       主站序号
-*       总线位置数组
-*****************************************************************************/
+/*
+/* 初始化左臂电机，并将其设定为位置模式 
+*  输入：记录结构体，主站序号，总线位置数组
+**/
 int leftarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * motor_pos)
 {
     arm.dm_index = dm_index;        // 记录当前身体部分所使用的domain
@@ -318,6 +315,9 @@ int leftarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * motor
     return 1;
 }
 
+/*
+ * 初始化力传感器，改变控制字使其输出力、力矩数据
+ */
 int FT_sensor_init(bodypart &arm, ec_master_t * m, int dm_index, EC_position pos)
 {
     arm.dm_index = dm_index;
@@ -388,7 +388,7 @@ int FT_sensor_init(bodypart &arm, ec_master_t * m, int dm_index, EC_position pos
     domain[dm_index].domain_reg.push_back(temp10);
 
     // 1、写控制字 0000 到0x7010:0x01 Sdo 功能：读出counts数据，配置滤波器为0, 校准数据为700-30
-    uint32_t data1 = 0x000;
+    uint32_t data1 = 0x001;
     uint32_t abort_code;
     if (ecrt_master_sdo_download(m, pos.buspos, 0x7010, 0x01, (uint8_t *)&data1, sizeof(data1), &abort_code)) // 写SDO，0x2F41:0 16-19位配置为4 即可开启模拟二通道输入
     {
@@ -431,6 +431,9 @@ int FT_sensor_init(bodypart &arm, ec_master_t * m, int dm_index, EC_position pos
 
 }
 
+/*
+ * 处理domain，当前多个domain，每个domain只需要pushback即可
+ */
 int ArrayDomainRegs(EC_domain &dm)
 {
     int i = 0;
@@ -454,6 +457,9 @@ int ArrayDomainRegs(EC_domain &dm)
     return i;
 }
 
+/*
+ * 三次多项式插值
+ */
 int interpolation(Motor &m)
 {
     double p1 = 0;
@@ -486,9 +492,9 @@ int interpolation(Motor &m)
     }
 }
 
-/*****************************************************************************
+/*
  * EtherCat写帧-改变电机状态-状态机
- ****************************************************************************/
+ */
 uint8_t changeOneMotorState(bodypart &arm, int8_t id, uint8_t state)
 {
     Motor *m = &arm.motor[id];
@@ -555,9 +561,9 @@ uint8_t changeOneMotorState(bodypart &arm, int8_t id, uint8_t state)
     return 0;
 }
 
-/*****************************************************************************
+/*
  * EtherCat写帧-改变多个电机状态
- ****************************************************************************/
+ */
 uint8_t changeBodyMotorState(bodypart &arm, int8_t id, uint8_t state)
 {
     int i = 0;
@@ -578,6 +584,9 @@ uint8_t changeBodyMotorState(bodypart &arm, int8_t id, uint8_t state)
     return ret;
 }
 
+/*
+ * 停止手臂电机运动，输入左臂或右臂
+ */
 void stopArmMotor(bodypart & arm)
 {
     int i;
@@ -590,6 +599,9 @@ void stopArmMotor(bodypart & arm)
     }
 }
 
+/*
+ * 读手臂电机反馈数据，输入左臂或右臂
+ */
 void readArmData(bodypart & arm)
 {
     int i;
@@ -605,8 +617,12 @@ void readArmData(bodypart & arm)
             arm.motor[i].first_time = 1;
         }
     }
+    // readForceData(arm);
 }
 
+/*
+ * 读力传感器数据，输入左臂或右臂
+ */
 void readForceData(bodypart &arm)
 {
     int dm_index = arm.dm_index;
@@ -635,17 +651,20 @@ void readForceData(bodypart &arm)
         arm.endft.dataReady = 0;
     }
 
-    // printf("%.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n",arm.endft.ft[0], arm.endft.ft[1], arm.endft.ft[2], arm.endft.ft[3], arm.endft.ft[4], arm.endft.ft[5]);
+    printf("%f,%f,%f,%f,%f,%f\n",arm.endft.ft[0], arm.endft.ft[1], arm.endft.ft[2], arm.endft.ft[3], arm.endft.ft[4], arm.endft.ft[5]);
 
 }
 
-void ctrlArm(bodypart &arm)
+/*
+ * 控制手臂电机，输入左臂或右臂
+ */
+void ctrlArmMotor(bodypart &arm)
 {
     int i;
     int motornum = sizeof(arm.motor)/sizeof(Motor);
     for (i = 0; i < motornum; i++)
     {
-        /********************** 电机轨迹插值运动 **********************/
+        /********************* 电机轨迹插值运动 **********************/
         if (arm.motor[i].plan_cnt == 0) //规划周期到达，进行插值规划
         {
             interpolation(arm.motor[i]);
@@ -664,10 +683,10 @@ void ctrlArm(bodypart &arm)
     }
 
 }
-/*****************************************************************************
- * 实时任务函数
- ****************************************************************************/
 
+/**
+ * 实时任务函数
+ */
 void realtime_proc(void *arg)
 {
     // 系统时间
@@ -677,10 +696,7 @@ void realtime_proc(void *arg)
 
     int i;
     uint8_t ready = 0;
-    float t = 0;
     command cmd;
-    uint32_t status1;
-    uint32_t sampcounter;
 
     while (run)
     {
@@ -763,7 +779,7 @@ void realtime_proc(void *arg)
             }
 
             /********************** 遍历各电机进行控制 **********************/
-            ctrlArm(leftarm);       // 控制左臂电机运动
+            ctrlArmMotor(leftarm);       // 控制左臂电机运动
             
             robotSendFeedback(leftarm, rightarm, head, track);
 
