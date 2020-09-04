@@ -62,7 +62,6 @@ typedef struct
     ec_domain_t *domain;
     ec_domain_state_t domain_state;
     uint8_t *domain_pd;
-    ec_pdo_entry_reg_t domain_regs[100];
     std::vector<ec_pdo_entry_reg_t> domain_reg;
 }EC_domain;
 
@@ -104,7 +103,7 @@ typedef struct
     EC_position pos;
     Offset_ft offset;
 
-    int32_t ft[6];
+    double ft[6];
     bool dataReady;
     double countsPerForce;
     double countsPerTorque;
@@ -124,7 +123,7 @@ typedef struct
 typedef struct 
 {
     double T00[16];
-    Motor motor[7];
+    Motor motor[1];
     splan s_line;
     splan s_beta;
     splan s_equat;
@@ -133,7 +132,7 @@ typedef struct
 }bodypart;
 
 
-int FT_sensor_init(bodypart arm, ec_master_t * m, int dm_index, EC_position pos);
+int FT_sensor_init(bodypart &arm, ec_master_t * m, int dm_index, EC_position pos);
 
 
 # endif

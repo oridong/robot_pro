@@ -68,8 +68,9 @@
 #define MotorNum 1 // 使用的电机数量
 
 // EtherCAT 电机总线地址
-static EC_position left_slave_pos[] = {{0, 0}, {0, 1}, {0, 2}, {0, 2}, {0, 2}, {0, 2}, {0, 2}, {0, 0},};// 力传感器位置,   
-
+static EC_position left_slave_pos[] = {{0, 0}, {0, 1}, {0, 2}, {0, 2}, {0, 2}, {0, 2}, {0, 2}, {0, 0},}; 
+static EC_position right_slave_pos[] = {{0, 0}, {0, 1}, {0, 2}, {0, 2}, {0, 2}, {0, 2}, {0, 2}, {0, 0},};
+  
 const static uint8_t armMotorMode = 8; // 机械臂电机运行模式
 
 // 插值周期
@@ -269,12 +270,12 @@ int leftarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * motor
         if (!arm.motor[i].sc_dig_out)
         {
             fprintf(stderr, "Failed to get slave configuration, No.%d.\n", i);
-            return -1;
+            return 0;
         }
         if (ecrt_slave_config_pdos(arm.motor[i].sc_dig_out, EC_END, ss_pos))
         {
             fprintf(stderr, "Failed to configure PDOs. No.%d.\n", i);
-            return -1;
+            return 0;
         }
 
         // ==================== 读写 SDO，配置0x2f41:0x00, 加入AD-input2到PDO中 ======================== //
@@ -287,7 +288,7 @@ int leftarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * motor
         if (ecrt_master_sdo_upload(master0, arm.motor[i].buspos, 0x2F41, 0, result, target_size, &result_size, &abort_code)) // 读SDO， 0x2F41:0 为用户应用配置字
         {
             fprintf(stderr, "Failed to get sdo data.\n");
-            return -1;
+            return 0;
         }
 
         // 2、写入0x40000 到0x2f41:0x00 配置用户自定义 pdo 的功能
@@ -303,20 +304,23 @@ int leftarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * motor
         if (ecrt_master_sdo_upload(master0, arm.motor[i].buspos, 0x2F41, 0, result, target_size, &result_size, &abort_code)) // 读SDO， 0x2F41:0 为用户应用配置字
         {
             fprintf(stderr, "Failed to get sdo data.\n");
-            return -1;
+            return 0;
         }
+
         // =========================================================================== //
 
     } /* motor 循环*/
 
     // 初始化力传感器从站
-    EC_position ft_pos = {motor_pos[7].alias, motor_pos[7].buspos};
-    i = FT_sensor_init(arm, m, dm_index, ft_pos);
-    return i;
+    // EC_position ft_pos = {motor_pos[7].alias, motor_pos[7].buspos};
+    // i = FT_sensor_init(arm, m, dm_index, ft_pos);
+    // return i;
+    return 1;
 }
 
-int FT_sensor_init(bodypart arm, ec_master_t * m, int dm_index, EC_position pos)
+int FT_sensor_init(bodypart &arm, ec_master_t * m, int dm_index, EC_position pos)
 {
+    arm.dm_index = dm_index;
     // 将配置的总线位置记录下来
     arm.endft.pos.alias = pos.alias;
     arm.endft.pos.buspos = pos.buspos;
@@ -354,23 +358,23 @@ int FT_sensor_init(bodypart arm, ec_master_t * m, int dm_index, EC_position pos)
     if (!ft_sc_dig_out)
     {
         fprintf(stderr, "Failed to get slave configuration, \n");
-        return -1;
+        return 0;
     }
     if (ecrt_slave_config_pdos(ft_sc_dig_out, EC_END, ss_ft))
     {
         fprintf(stderr, "Failed to configure PDOs.\n");
-        return -1;
+        return 0;
     }
     ec_pdo_entry_reg_t temp1 = {pos.alias, pos.buspos, ATI_FTSENSOR, spe_ft[0].index, spe_ft[0].subindex, &arm.endft.offset.ctrl1, NULL};
-    ec_pdo_entry_reg_t temp2 = {pos.alias, pos.buspos, ATI_FTSENSOR, spe_ft[0].index, spe_ft[0].subindex, &arm.endft.offset.ctrl2, NULL};
-    ec_pdo_entry_reg_t temp3 = {pos.alias, pos.buspos, ATI_FTSENSOR, spe_ft[0].index, spe_ft[0].subindex, &arm.endft.offset.Fx, NULL};
-    ec_pdo_entry_reg_t temp4 = {pos.alias, pos.buspos, ATI_FTSENSOR, spe_ft[0].index, spe_ft[0].subindex, &arm.endft.offset.Fy, NULL};
-    ec_pdo_entry_reg_t temp5 = {pos.alias, pos.buspos, ATI_FTSENSOR, spe_ft[0].index, spe_ft[0].subindex, &arm.endft.offset.Fz, NULL};
-    ec_pdo_entry_reg_t temp6 = {pos.alias, pos.buspos, ATI_FTSENSOR, spe_ft[0].index, spe_ft[0].subindex, &arm.endft.offset.Tx, NULL};
-    ec_pdo_entry_reg_t temp7 = {pos.alias, pos.buspos, ATI_FTSENSOR, spe_ft[0].index, spe_ft[0].subindex, &arm.endft.offset.Ty, NULL};
-    ec_pdo_entry_reg_t temp8 = {pos.alias, pos.buspos, ATI_FTSENSOR, spe_ft[0].index, spe_ft[0].subindex, &arm.endft.offset.Tz, NULL};
-    ec_pdo_entry_reg_t temp9 = {pos.alias, pos.buspos, ATI_FTSENSOR, spe_ft[0].index, spe_ft[0].subindex, &arm.endft.offset.status1, NULL};
-    ec_pdo_entry_reg_t temp10 = {pos.alias, pos.buspos, ATI_FTSENSOR, spe_ft[0].index, spe_ft[0].subindex, &arm.endft.offset.status2, NULL};
+    ec_pdo_entry_reg_t temp2 = {pos.alias, pos.buspos, ATI_FTSENSOR, spe_ft[1].index, spe_ft[1].subindex, &arm.endft.offset.ctrl2, NULL};
+    ec_pdo_entry_reg_t temp3 = {pos.alias, pos.buspos, ATI_FTSENSOR, spe_ft[2].index, spe_ft[2].subindex, &arm.endft.offset.Fx, NULL};
+    ec_pdo_entry_reg_t temp4 = {pos.alias, pos.buspos, ATI_FTSENSOR, spe_ft[3].index, spe_ft[3].subindex, &arm.endft.offset.Fy, NULL};
+    ec_pdo_entry_reg_t temp5 = {pos.alias, pos.buspos, ATI_FTSENSOR, spe_ft[4].index, spe_ft[4].subindex, &arm.endft.offset.Fz, NULL};
+    ec_pdo_entry_reg_t temp6 = {pos.alias, pos.buspos, ATI_FTSENSOR, spe_ft[5].index, spe_ft[5].subindex, &arm.endft.offset.Tx, NULL};
+    ec_pdo_entry_reg_t temp7 = {pos.alias, pos.buspos, ATI_FTSENSOR, spe_ft[6].index, spe_ft[6].subindex, &arm.endft.offset.Ty, NULL};
+    ec_pdo_entry_reg_t temp8 = {pos.alias, pos.buspos, ATI_FTSENSOR, spe_ft[7].index, spe_ft[7].subindex, &arm.endft.offset.Tz, NULL};
+    ec_pdo_entry_reg_t temp9 = {pos.alias, pos.buspos, ATI_FTSENSOR, spe_ft[8].index, spe_ft[8].subindex, &arm.endft.offset.status1, NULL};
+    ec_pdo_entry_reg_t temp10 = {pos.alias, pos.buspos, ATI_FTSENSOR, spe_ft[9].index, spe_ft[9].subindex, &arm.endft.offset.status2, NULL};
 
     domain[dm_index].domain_reg.push_back(temp1);
     domain[dm_index].domain_reg.push_back(temp2);
@@ -400,7 +404,7 @@ int FT_sensor_init(bodypart arm, ec_master_t * m, int dm_index, EC_position pos)
     if (ecrt_master_sdo_upload(m, pos.buspos, 0x2040, 0x31, result, target_size, &result_size, &abort_code)) // 读SDO， 0x2F41:0 为用户应用配置字
     {
         fprintf(stderr, "Failed to get sdo data.\n");
-        return -1;
+        return 0;
     }
     data = (uint32_t *)result;
     arm.endft.countsPerForce = double(*data);      // 将读到的数据写入手臂结构体
@@ -410,7 +414,7 @@ int FT_sensor_init(bodypart arm, ec_master_t * m, int dm_index, EC_position pos)
     if (ecrt_master_sdo_upload(m, pos.buspos, 0x2040, 0x32, result, target_size, &result_size, &abort_code)) // 读SDO， 0x2F41:0 为用户应用配置字
     {
         fprintf(stderr, "Failed to get sdo data.\n");
-        return -1;
+        return 0;
     }
     data = (uint32_t *)result;
     arm.endft.countsPerTorque = double(*data);      // 将读到的数据写入手臂结构体
@@ -430,14 +434,23 @@ int FT_sensor_init(bodypart arm, ec_master_t * m, int dm_index, EC_position pos)
 int ArrayDomainRegs(EC_domain &dm)
 {
     int i = 0;
-    for (i = 0; i < dm.domain_reg.size(); i++)
-    {
-        memcpy(&dm.domain_regs[i], &dm.domain_reg.at(i), sizeof(dm.domain_reg.at(i)));
-    }
-    ec_pdo_entry_reg_t temp = {};
-    memcpy(&dm.domain_regs[i], &temp, sizeof(temp));
+    // for (i = 0; i < dm.domain_reg.size(); i++)
+    // {
+    //     memcpy(&dm.domain_regs[i], &dm.domain_reg.at(i), sizeof(dm.domain_reg.at(i)));
+    // }
+    // ec_pdo_entry_reg_t temp = {};
+    // memcpy(&dm.domain_regs[i], &temp, sizeof(temp));
+    ec_pdo_entry_reg_t *buffer = new ec_pdo_entry_reg_t[dm.domain_reg.size() + 1];  
+    if (!dm.domain_reg.empty())  
+    {  
+        memcpy(buffer, &dm.domain_reg[0], dm.domain_reg.size()*sizeof(ec_pdo_entry_reg_t));  
+    }  
 
-    i = ecrt_domain_reg_pdo_entry_list(dm.domain, dm.domain_regs);
+    ec_pdo_entry_reg_t temp = {};
+    memcpy(&buffer[dm.domain_reg.size()], &temp, sizeof(temp));
+
+    i = ecrt_domain_reg_pdo_entry_list(dm.domain, buffer);
+    free(buffer);
     return i;
 }
 
@@ -482,6 +495,7 @@ uint8_t changeOneMotorState(bodypart &arm, int8_t id, uint8_t state)
     int dm_index = arm.dm_index;
     /* read inputs */
     m->status = EC_READ_U16(domain[dm_index].domain_pd + m->offset.status_word);
+    // printf("%x\n",m->status);
 
     //DS402 CANOpen over EtherCAT status machine
     if ((m->status & 0x004f) == 0x0008) // Fault
@@ -553,7 +567,7 @@ uint8_t changeBodyMotorState(bodypart &arm, int8_t id, uint8_t state)
     {
         for (i = 0; i < sizeof(arm.motor)/sizeof(Motor); i++)
         {
-            ret_t = changeOneMotorState(arm, id, state);
+            ret_t = changeOneMotorState(arm, i, state);
             ret &= ret_t;
         }
     }
@@ -621,7 +635,7 @@ void readForceData(bodypart &arm)
         arm.endft.dataReady = 0;
     }
 
-    printf("%d,%d,%d,%d,%d,%d\n",arm.endft.ft[0], arm.endft.ft[1], arm.endft.ft[2], arm.endft.ft[3], arm.endft.ft[4], arm.endft.ft[5]);
+    // printf("%.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n",arm.endft.ft[0], arm.endft.ft[1], arm.endft.ft[2], arm.endft.ft[3], arm.endft.ft[4], arm.endft.ft[5]);
 
 }
 
@@ -680,7 +694,7 @@ void realtime_proc(void *arg)
         ecrt_domain_process(domain[0].domain);
         ecrt_domain_process(domain[1].domain);
 
-        readForceData(leftarm);
+        readForceData(rightarm);
 
         switch (run_state)
         {
@@ -696,7 +710,7 @@ void realtime_proc(void *arg)
             // printf("time: %ld, ready:%d\n", (long)previous, ready);
             if (ready)
             {
-                run_state = CONTROL;
+                run_state = ENABLE;
                 printf("Elmo Mode Configuration Finished.\n");
             }
             break;
@@ -773,8 +787,8 @@ void realtime_proc(void *arg)
         // send process data
         ecrt_domain_queue(domain[0].domain);
         ecrt_domain_queue(domain[1].domain);
-        ecrt_master_send(master1);
         ecrt_master_send(master0);
+        ecrt_master_send(master1);
         now = rt_timer_read();
         period = (now - previous) / 1000; //us
     }
@@ -837,8 +851,10 @@ int main(int argc, char *argv[])
     if (!domain[1].domain) return -1;
     // ==================== 配置EtherCAT 从站 ======================== //
     printf("Creating slave configurations...\n");
-    leftarmInit(leftarm, master0, 0, left_slave_pos);       // 配置左臂从站， 包括7个关节电机和1个力传感器, master0, domain0
-
+    if (!leftarmInit(leftarm, master0, 0, left_slave_pos)) return -1;       // 配置左臂从站， 包括7个关节电机和1个力传感器, master0, domain0
+    // rightarmInit(rightarm, master1, 1, right_slave_pos);       // 配置左臂从站， 包括7个关节电机和1个力传感器, master0, domain0
+    EC_position ft_pos = {0,0};
+    if (!FT_sensor_init(rightarm, master1, 1, ft_pos)) return -1;
 
 
     // ==================== 配置 EtherCAT PDO，激活主站，得到domain指针 ======================== //
