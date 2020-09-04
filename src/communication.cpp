@@ -168,11 +168,12 @@ command robotReceiveCommand(void)
     
 }
 
-void robotSendFeedback(Motor m[])
+void robotSendFeedback(bodypart la, bodypart ra, bodypart head, bodypart track)
 {
     char send_buf[1024] = "";
-    sprintf(send_buf, "d0:%d,%d,%d\n ", m[0].act_position,m[0].exp_position , m[0].ain);
+    sprintf(send_buf, "d0:%d,%d,%d\n ", la.motor[0].act_position,la.motor[0].exp_position , la.motor[0].ain);
     send_buf[strlen(send_buf) - 1] = '\0';
+    
     //发送数据
     int len = sendto(sockfd, send_buf, strlen(send_buf), 0, (struct sockaddr *)&ctrl_addr, sizeof(ctrl_addr));
     // printf("len = %d\n", len);

@@ -28,6 +28,7 @@
 
 #include "ecrt.h"
 
+/* 电机Pdo地址偏移  */
 typedef struct
 {
     unsigned int target_position;
@@ -40,6 +41,7 @@ typedef struct
     unsigned int ain;
 } Offset;
 
+/* 力传感器Pdo地址偏移  */
 typedef struct
 {
     unsigned int ctrl1;
@@ -54,6 +56,24 @@ typedef struct
     unsigned int status2;
 } Offset_ft;
 
+/* EtherCAT domain结构体  */
+typedef struct 
+{
+    ec_domain_t *domain;
+    ec_domain_state_t domain_state;
+    uint8_t *domain_pd;
+    ec_pdo_entry_reg_t domain_regs[100];
+    std::vector<ec_pdo_entry_reg_t> domain_reg;
+}EC_domain;
+
+/* EtherCAT 地址结构体 */
+typedef struct EC_position
+{
+    uint16_t alias;
+    uint16_t buspos;
+} EC_position;
+
+/* Elmo电机结构体 */
 typedef struct 
 {
     uint16_t alias;
@@ -78,26 +98,29 @@ typedef struct
 
 }Motor;
 
-typedef struct EC_position
-{
-    uint16_t alias;
-    uint16_t buspos;
-} EC_position;
-
+/* 力传感器 结构体 */
 typedef struct 
 {
+    EC_position pos;
     Offset_ft offset;
-    double coefficient;
-    uint32_t ft[6];
+
+    int32_t ft[6];
+    bool dataReady;
+    double countsPerForce;
+    double countsPerTorque;
+
+    uint32_t status;
+    uint32_t sampCount;
 }ft_sensor;
 
+/* 插值 结构体 */
 typedef struct 
 {
     double para[17];
     double time;
 }splan;
 
-
+/* 身体部件 结构体 */
 typedef struct 
 {
     double T00[16];
@@ -106,9 +129,11 @@ typedef struct
     splan s_beta;
     splan s_equat;
     ft_sensor endft;
-
+    int dm_index;
 }bodypart;
 
+
+int FT_sensor_init(bodypart arm, ec_master_t * m, int dm_index, EC_position pos);
 
 
 # endif

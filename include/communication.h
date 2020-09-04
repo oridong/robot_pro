@@ -21,14 +21,18 @@
 
 # define HEAD_MOVE 0
 # define CAR_MOVE 1
-# define STOP_ALL 3
+# define STOP_ALL 2
+# define ENABLE_MOTOR 3
+
 # define NO_RECV -2
 # define ERROR_MATCH -1
+
 
 const char cmd_table[][CMD_SIZE] = {
     "headMove",
     "carmove",
     "stopAll"
+    "EnMotor"
 };
 
 typedef struct{
@@ -42,7 +46,7 @@ static regex_t reg ;
 
 int UDP_init(void);
 command robotReceiveCommand(void);
-void robotSendFeedback(Motor *);
+void robotSendFeedback(bodypart la, bodypart ra, bodypart head, bodypart track);
 
 
 
