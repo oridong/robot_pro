@@ -11,6 +11,7 @@ extern double sum(const double x_data[]);
 extern void mldivide(const double A[16], double B[16]);
 extern void mldivide_rot(const double A[9], const double B[9], double Y[9]);
 extern void matrixMultiply(double *left, int xl, int yl, double *right, int xr, int yr, double *result);
+extern void matrixTrans(double * in, int x , int y, double * out);
 extern void slerp(float starting[4], float ending[4], float result[4], float t );
 extern void quatU2Axis(const double qin[4], double qout[4]);
 

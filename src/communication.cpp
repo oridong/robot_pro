@@ -4,10 +4,10 @@ int sockfd;
 struct sockaddr_in ctrl_addr;
 command cmd;
 char error_buf[64];
-static const char *pattern = "^(\\w+):(.*)$";
+static const char *pattern = "^(\\w+)\\((.*)\\)$";
 
 char recv_buf[RECV_BUF_SIZE] = "";
-char param_str[PARAM_SIZE] = "";
+char param_str[PARAM_SIZE] = "";        
 char cmd_str[CMD_SIZE] = "";
 
 regmatch_t pm[10];
@@ -76,18 +76,9 @@ command robotReceiveCommand(void)
     // printf("\nip:%s ,port:%d\n",cli_ip, ntohs(ctrl_addr.sin_port));
     if (recv_len > 0)
     {
-        printf("received data(%d):%s\n", recv_len, recv_buf);
+        printf("received data(%d):%s", recv_len, recv_buf);
 
         z = strlen(recv_buf);
-
-        // token = strtok(recv_buf, "\n");
-
-        // for (cmd.param_cnt = 0; cmd.param_cnt < 10 && token != NULL; ++cmd.param_cnt)
-        // {
-        //     memcpy(cmd.param_list[cmd.param_cnt], token, sizeof(token));
-        //     token = strtok(NULL, "\n");
-        //     // printf("param%d:%s\n", cmd.param_cnt, cmd.param_list[cmd.param_cnt]);
-        // }
 
         if (z > 0 && recv_buf[z - 1] == '\n')
         {
@@ -95,6 +86,7 @@ command robotReceiveCommand(void)
         }
 
         /* 对每一行应用正则表达式进行匹配 */
+        
         z = regexec(&reg, recv_buf, nmatch, pm, 0);
         if (z == REG_NOMATCH) // success = 0
         {
@@ -140,7 +132,7 @@ command robotReceiveCommand(void)
                 }
             }
         }
-        
+       
         z = 0;
         while ( z < sizeof(cmd_table)/CMD_SIZE)
         {
@@ -158,6 +150,7 @@ command robotReceiveCommand(void)
         
         printf("match success %d \n", cmd.cmd_mode);
         return cmd;
+        
 
     }
     else
@@ -170,9 +163,35 @@ command robotReceiveCommand(void)
 
 void robotSendFeedback(bodypart la, bodypart ra, bodypart head, bodypart track)
 {
-    char send_buf[1024] = "";
-    sprintf(send_buf, "d0:%d,%d,%d\n ", la.motor[0].act_position,la.motor[0].exp_position , la.motor[0].ain);
+    char send_buf[2048] = "";
+    sprintf(send_buf, " %f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,\n  ", 
+    la.motor[0].this_send/la.jointGear[0], 
+    la.motor[1].this_send/la.jointGear[1],la.motor[2].this_send/la.jointGear[2],
+    la.motor[3].this_send/la.jointGear[3],la.motor[4].this_send/la.jointGear[4],
+    la.motor[5].this_send/la.jointGear[5],la.motor[6].this_send/la.jointGear[6], 
+    ra.motor[1].this_send/ra.jointGear[1],ra.motor[2].this_send/ra.jointGear[2],
+    ra.motor[3].this_send/ra.jointGear[3],ra.motor[4].this_send/ra.jointGear[4],
+    ra.motor[5].this_send/ra.jointGear[5],ra.motor[6].this_send/ra.jointGear[6], 
+    ra.motor[6].this_send/ra.jointGear[6],
+    head.motor[0].this_send/head.jointGear[0], 
+    head.motor[1].this_send/head.jointGear[1], 
+    head.motor[2].this_send/head.jointGear[2], 
+    ra.endft.ft[2]);
     send_buf[strlen(send_buf) - 1] = '\0';
+
+    // printf("%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,\n  ", 
+    // la.motor[0].this_send/la.jointGear[0], 
+    // la.motor[1].this_send/la.jointGear[1],la.motor[2].this_send/la.jointGear[2],
+    // la.motor[3].this_send/la.jointGear[3],la.motor[4].this_send/la.jointGear[4],
+    // la.motor[5].this_send/la.jointGear[5],la.motor[6].this_send/la.jointGear[6], 
+    // ra.motor[1].this_send/ra.jointGear[1],ra.motor[2].this_send/ra.jointGear[2],
+    // ra.motor[3].this_send/ra.jointGear[3],ra.motor[4].this_send/ra.jointGear[4],
+    // ra.motor[5].this_send/ra.jointGear[5],ra.motor[6].this_send/ra.jointGear[6], 
+    // ra.motor[6].this_send/ra.jointGear[6],
+    // head.motor[0].this_send/head.jointGear[0], 
+    // head.motor[1].this_send/head.jointGear[1], 
+    // head.motor[2].this_send/head.jointGear[2], 
+    // ra.endft.ft[2]);
     
     //发送数据
     int len = sendto(sockfd, send_buf, strlen(send_buf), 0, (struct sockaddr *)&ctrl_addr, sizeof(ctrl_addr));

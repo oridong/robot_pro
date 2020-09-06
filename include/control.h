@@ -29,6 +29,15 @@
 
 #include "ecrt.h"
 
+#define ctl_period 1000000 /* unit：ns， 1ms 控制周期 */
+#define itp_window 3
+
+# define IDLE 0
+# define ON_MOVEL 1
+# define ON_MOVEJ 2
+# define ON_MOVE_FOLLOW 3
+
+
 /* 电机Pdo地址偏移  */
 typedef struct
 {
@@ -78,6 +87,7 @@ typedef struct
 {
     double para[17];
     double time;
+    double deltaTime;
 }splan;
 
 /* Elmo电机结构体 */
@@ -93,13 +103,13 @@ typedef struct
     uint8_t first_time;
 
     int act_position; /* actual position in cnt */
-    int exp_position;   /* expect position in cnt */
+    double exp_position;   /* expect position in cnt */
     uint32_t ain;       // 模拟输入2 
     double this_send;
 
     splan sp;
 
-    std::vector<int> plan;
+    std::vector<double> plan;
     double plan_param[4];
     uint16_t plan_cnt;
     double plan_run_time;
@@ -126,12 +136,25 @@ typedef struct
 typedef struct 
 {
     double T00[16];
-    Motor motor[1];
-    splan s_line;
-    splan s_beta;
-    splan s_equat;
+    Motor motor[7];
+    double jointPos[7];
+    double jointGear[7];
+
     ft_sensor endft;
     int dm_index;
+
+    int s_planTimes;
+    splan s_line;
+    double rotInit[9];
+    double locationInit[3];
+    double locationDelta[3];
+
+    splan s_beta;
+
+    splan s_equat;
+    double rEquivalent[4];
+
+    int state;
 }bodypart;
 
 

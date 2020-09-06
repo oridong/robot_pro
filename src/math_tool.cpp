@@ -107,7 +107,7 @@ void b_sqrt(double *x)
     *x = sqrt(*x);
 }
 
-// ���?
+// ���?
 void mldivide(const double A[16], double B[16])
 {
     double b_A[16];
@@ -380,11 +380,11 @@ void mldivide_rot(const double A[9], const double B[9], double Y[9])
 
 /*
 *   ����----------����˷���matlab������ʽ����
-*   ����----------left double���� �����?
-                  xl��yl���������������?
+*   ����----------left double���� �����?
+                  xl��yl���������������?
                   right double���� �Ҿ���
                   xr��yr �Ҿ�������������
-*   ���?----------result ����������ڷ����?ָ�룬����ߴ����?��ǰȷ��
+*   ���?----------result ����������ڷ����?ָ�룬����ߴ����?��ǰȷ��
 */
 void matrixMultiply(double *left, int xl, int yl, double *right, int xr, int yr, double *result)
 {
@@ -476,4 +476,16 @@ void quatU2Axis(const double qin[4], double qout[4])
         qout[3] = qin[3] / std2;
     }
     
+}
+
+void matrixTrans(double * in, int x , int y, double * out)
+{
+    int i,j;
+    for (i = 0; i<x; i++)
+    {
+        for (j = 0; j< y; j++)
+        {
+            out[i*y+j] = in[j*x +i];
+        }
+    }
 }

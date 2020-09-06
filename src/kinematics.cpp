@@ -677,13 +677,10 @@ double FindBeta(const double angle[7])
     double BE[3], BW[3], res[3], res2[3];
     memcpy(BE, *(double(*)[3]) & T03[12], sizeof(BE));
     memcpy(BW, *(double(*)[3]) & EndPose[12],sizeof(BW));
-    printf("%f,%f,%f\n",BE[0],BE[1],BE[2]);
-    printf("%f,%f,%f\n",BW[0],BW[1],BW[2]);
-
+  
     cross(BE, BW, res);
     memcpy(BE, BW, sizeof(BW));
     BE[2] = 0.0;
-    printf("%f,%f,%f\n",BE[0],BE[1],BE[2]);
     cross(BW, BE, res2);
 
     double len1 = b_norm(res);
@@ -694,12 +691,7 @@ double FindBeta(const double angle[7])
         res[i] /= len1;
         res2[i] /= len2;
     }
-
-    printf("%f,%f,%f\n",res[0],res[1],res[2]);
-    printf("%f,%f,%f\n",res2[0],res2[1],res2[2]);
-
     double angle_test = acos(dot(res, res2));
-    printf("test:%f\n", angle_test);
     /*  简化计算 */
 
 
@@ -815,4 +807,23 @@ void TfromRotPos(const double rot[9], const double pos[3], double trans[16])
         trans[i + 12] = pos[i];
     }
     trans[15] = 1.0;
+}
+
+
+void pose2T(double pose[6], double T[16])   // XYZ 顺规
+{
+    double sr = sin(pose[3]);
+    double cr = cos(pose[3]);
+    double sp = sin(pose[4]);
+    double cp = cos(pose[4]);
+    double sy = sin(pose[5]);
+    double cy = cos(pose[5]);
+    double Rx[9] = {1, 0, 0, 0, cr, sr, 0, -sr, cr};
+    double Ry[9] = {cp, 0, -sp, 0, 1, 0, sp, 0, cp};
+    double Rz[9] = {cy, sy, 0, -sy, cy, 0, 0, 0, 1};
+    double t1[9],t2[9];
+    
+    matrixMultiply(Rx,3,3,Ry,3,3,t1);
+    matrixMultiply(t1,3,3,Rz,3,3,t2);
+    TfromRotPos(t2, *(double(*)[3])&pose[0], T);
 }
