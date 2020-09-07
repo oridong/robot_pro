@@ -57,6 +57,9 @@ void STrajectoryPara(double q0, double q1, double limit[4], double para[17])
 
     if (sigma == 0.0)
     {
+        para[0] = 0.0;
+        para[1] = 0.0;
+        para[2] = 0.0;
         para[5] = q0;
         para[6] = q1;
         para[16] = 1.0;

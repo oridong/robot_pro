@@ -633,7 +633,7 @@ void InverseKinematics(const double angleInit[7], const double expectPose[16], d
  * 输入------------------angle：当前关节角1x7
  * 输出------------------findBeta：当前关节角所对应的β角
  */
-double FindBeta(const double angle[7])
+double FindBetaSlow(const double angle[7])
 {
     double dv0[3] = {448.50221975582684, 29.933407325194224, 0.0};
     static const double dv4[3] = {-1.0, 0.0, 0.0};
@@ -772,6 +772,107 @@ double FindBeta(const double angle[7])
     }
 
     return findBeta;
+}
+
+
+/*
+ * 功能------------------计算出当前关节角所对应的β角，通过两法向量夹角计算
+ * 输入------------------angle：当前关节角1x7
+ * 输出------------------findBeta：当前关节角所对应的β角
+ * 转C初始化要求
+ * Arguments    : const double angle[7]
+ * Return Type  : double
+ */
+double FindBeta(const double angle[7])
+{
+  double findBeta;
+  double T01[16];
+  double T12[16];
+  double T23[16];
+  int i0;
+  int i1;
+  int T01_tmp;
+  int b_T01_tmp;
+  double P0E_idx_0;
+  double b_T01[16];
+  double P0E_idx_1;
+  double P0E_idx_2;
+  double T03[16];
+  double nVertical_idx_0;
+  double nVertical_idx_1;
+  double nVertical_idx_2;
+  double nReal_idx_0;
+  double temp1[16];
+  double temp2[16];
+  CoordinateTrans(0.0, 0.0, angle[0], 0.0, T01);
+  CoordinateTrans(1.5707963267948966, 0.0, angle[1], 0.0, T12);
+  CoordinateTrans(-1.5707963267948966, 0.0, angle[2], 449.5, T23);
+
+  matrixMultiply(T01, 4, 4, T12, 4, 4, temp1);
+  matrixMultiply(temp1, 4, 4, T23, 4, 4, T03);
+
+  P0E_idx_0 = T03[12];
+  P0E_idx_1 = T03[13];
+  P0E_idx_2 = T03[14];
+
+  /* 已知BW的前提下，计算假设机械臂平面在竖直平面下，E的坐标 */
+  ForwardKinematics(angle, T01);
+
+  /* TCP中心点坐标，同时为基坐标系指向该点的向量1x3 */
+  nVertical_idx_0 = T01[13] * 0.0 - T01[14] * 0.0;
+  nVertical_idx_1 = -T01[14] - T01[12] * 0.0;
+  nVertical_idx_2 = T01[12] * 0.0 - (-T01[13]);
+
+  /* (2)TCP中心点与竖直向上向量(-1,0,0)求解零位面的法向量n  */
+  nReal_idx_0 = P0E_idx_1 * T01[14] - P0E_idx_2 * T01[13];
+  P0E_idx_2 = P0E_idx_2 * T01[12] - P0E_idx_0 * T01[14];
+  P0E_idx_0 = P0E_idx_0 * T01[13] - P0E_idx_1 * T01[12];
+  P0E_idx_0 = ((nVertical_idx_0 * nReal_idx_0 + nVertical_idx_1 * P0E_idx_2) +
+               nVertical_idx_2 * P0E_idx_0) / (sqrt((nVertical_idx_0 *
+    nVertical_idx_0 + nVertical_idx_1 * nVertical_idx_1) + nVertical_idx_2 *
+    nVertical_idx_2) * sqrt((nReal_idx_0 * nReal_idx_0 + P0E_idx_2 * P0E_idx_2)
+    + P0E_idx_0 * P0E_idx_0));
+
+  if (P0E_idx_0 > 1.0) {
+    P0E_idx_0 = 1.0;
+  } else {
+    if (P0E_idx_0 < -1.0) {
+      P0E_idx_0 = -1.0;
+    }
+  }
+
+  P0E_idx_0 = acos(P0E_idx_0);
+
+  /* y依据E点所在空间象限确定beta的符号 */
+  if ((T01[12] == T01[13]) && (T01[13] == T01[14]) && (T01[12] == 0.0)) {
+    /* disp('TCP中心点不能和原点重合'); */
+    findBeta = 10.0;
+
+    /* 这里还需要改 */
+  } else if (T01[14] == 0.0) {
+    /* 此时直线BW在xy平面,排除P0W(3)=0的情况，使y的除数不为0 */
+    if (T03[14] >= 0.0) {
+      findBeta = -(3.1415926535897931 - P0E_idx_0);
+    } else {
+      findBeta = 3.1415926535897931 - P0E_idx_0;
+    }
+  } else {
+    P0E_idx_2 = T03[13] - T01[13] / T01[14] * T03[14];
+
+    /* y为正表示点在平面上方 */
+    if (fabs(P0E_idx_2) < 0.0001) {
+      /* 浮点数运算在0附近可能会出错，在一定范围强制为0 */
+      P0E_idx_2 = 0.0;
+    }
+
+    if (P0E_idx_2 >= 0.0) {
+      findBeta = -(3.1415926535897931 - P0E_idx_0);
+    } else {
+      findBeta = 3.1415926535897931 - P0E_idx_0;
+    }
+  }
+
+  return findBeta;
 }
 
 

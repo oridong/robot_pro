@@ -28,7 +28,8 @@ void moveJ(bodypart &arm, const double jointFinal[7], double speedRate)
     double angleInit[7];
     memcpy(angleInit, arm.jointPos, sizeof(arm.jointPos));
     int motornum = sizeof(arm.motor)/sizeof(Motor);
-        
+    double sum = 0.0;
+            
     /* 1x8:7个关节角+此时的β */
     /* 初始化 */
     c_Tmax = 0.0;
@@ -36,6 +37,20 @@ void moveJ(bodypart &arm, const double jointFinal[7], double speedRate)
     /* workMode = 0：此时在关节空间对7个关节进行规划 */
     /* 每一个关节规划包含16个参数：[Ta, Tv, Td, Tj1, Tj2, q_0, q_1, v_0, v_1, vlim, a_max, a_min, a_lima, a_limd, j_max, j_min, signOfQ0Q1] */
     double limit[4] = {M_PI, M_PI, M_PI, speedRate};
+
+    // 检查是否在目标位置，如果在直接返回，但是由于电机抖动可能难以进入，需要提高s曲线规划兼容性
+    for (i =0; i< motornum; i++)
+    {
+        sum += fabs(arm.jointPos[i] - jointFinal[i]);
+    }
+    if (sum == 0.0)
+    {
+        printf("%f,re send\n", sum);
+        arm.state = IDLE;
+        return;
+    }
+
+    // 遍历电机进行s曲线规划
     for (i = 0; i < motornum; i++)
     {
         STrajectoryPara(angleInit[i], jointFinal[i], limit, arm.motor[i].sp.para);
@@ -47,15 +62,19 @@ void moveJ(bodypart &arm, const double jointFinal[7], double speedRate)
             c_Tmax = T[i];
         }
         arm.motor[i].sp.time = 0.0;
-        
-    }
-    for (i = 0; i < motornum; i++)
-    {
-        arm.motor[i].sp.deltaTime = arm.motor[i].itp_period_times * double(ctl_period) / 1e9 * T[i] / c_Tmax;
-        // if (i == 0) printf("%f,%f\n",arm.jointPos[1],jointFinal[1]);
     }
 
-    arm.s_planTimes = (int)(ceil(c_Tmax / 0.01)); // 向上取整
+    // 遍历电机赋值规划增量时间
+    for (i = 0; i < motornum; i++)
+    {
+        if (c_Tmax != 0.0){
+            arm.motor[i].sp.deltaTime = arm.motor[i].itp_period_times * double(ctl_period) / 1e9 * T[i] / c_Tmax;
+        }
+        // if (i == 1) printf("%f,%f\n",arm.jointPos[1],jointFinal[1]);
+    }
+
+    // 改变机械臂状态，并得到规划总次数
+    arm.s_planTimes = (int)(ceil(c_Tmax / 0.01 )); // 向上取整 定为0.01
     arm.state = ON_MOVEJ;
 }
 
@@ -186,7 +205,7 @@ void moveLPoseUnchanged(double angleInit[7], const double locationFinal[3], doub
 /*
  * 功能--------------实现机械臂末端直线插补姿态均匀变化,效果很不好……
  * 输入--------------angleInit：本时刻各关节角1x7
- *                   poseFinal：最终位姿4x4
+ *                   poseFinal：最终位姿 欧拉角，zyx顺规
  *                   speedRate：机械臂最大速度比例，取值0~1，用于调节机械臂最大速度
  * 输出--------------angleByPlanningL：返回多组离散关节角，每0.01s发送给驱动器一组
  */
@@ -217,7 +236,7 @@ void moveLPoseChanged(bodypart &arm, double poseFinal[6], double speedRate)
 
     /* [theta,rx,ry,rz] */
     /* 求解初末β */
-    betaInit = 0.1;//FindBeta(arm.jointPos);
+    betaInit = FindBeta(arm.jointPos);
     InverseKinematics(arm.jointPos, poseFinal, -M_PI, 0.1, M_PI, angleFinal_data, angleFinal_size); /* 返回1x8矩阵，最后一个为beta值 */
     betaFinal = angleFinal_data[7];
 
@@ -246,7 +265,7 @@ void moveLPoseChanged(bodypart &arm, double poseFinal[6], double speedRate)
     T[2] = arm.s_equat.para[0] + arm.s_equat.para[1] + arm.s_equat.para[2];
     double Tmax = max(T, 3);
 
-    arm.s_planTimes = (int)(ceil(Tmax / 0.01));
+    arm.s_planTimes = (int)(ceil(Tmax / 0.01));     // 暂定为0.01,如果修改需要对应
     arm.s_line.time = 0.0;
     arm.s_beta.time = 0.0;
     arm.s_equat.time = 0.0;

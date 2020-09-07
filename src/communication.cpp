@@ -2,6 +2,7 @@
 
 int sockfd;
 struct sockaddr_in ctrl_addr;
+struct sockaddr_in nvidia_addr;
 command cmd;
 char error_buf[64];
 static const char *pattern = "^(\\w+)\\((.*)\\)$";
@@ -39,6 +40,10 @@ int UDP_init()
     ctrl_addr.sin_family = AF_INET;
     ctrl_addr.sin_port = htons(CTRL_PORT);
     ctrl_addr.sin_addr.s_addr = inet_addr(CTRL_IP);
+
+    nvidia_addr.sin_family = AF_INET;
+    nvidia_addr.sin_port = htons(Nvidia_PORT);
+    nvidia_addr.sin_addr.s_addr = inet_addr(Nvidia_IP);
 
     int z = 0;
     z = regcomp(&reg, pattern, REG_EXTENDED);
@@ -194,6 +199,6 @@ void robotSendFeedback(bodypart la, bodypart ra, bodypart head, bodypart track)
     // ra.endft.ft[2]);
     
     //发送数据
-    int len = sendto(sockfd, send_buf, strlen(send_buf), 0, (struct sockaddr *)&ctrl_addr, sizeof(ctrl_addr));
+    int len = sendto(sockfd, send_buf, strlen(send_buf), 0, (struct sockaddr *)&nvidia_addr, sizeof(nvidia_addr));
     // printf("len = %d\n", len);
 }
