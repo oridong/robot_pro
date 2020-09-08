@@ -875,6 +875,18 @@ double FindBeta(const double angle[7])
   return findBeta;
 }
 
+void InverseKinematicsHead(double RwChest[9], double mapAngle[3])
+{
+    double cs;
+    // 依据R03求解头部三个关节
+    mapAngle[1] = asin(-RwChest[8]);
+    cs = cos(mapAngle[1]);
+    
+    // 横滚角一般人达不到90度，不用考虑cos等于0的情况
+    mapAngle[0] = rt_atan2d_snf(-RwChest[7] / cs, -RwChest[6] / cs);
+    mapAngle[2] = rt_atan2d_snf(RwChest[2] / cs, RwChest[5] / cs);
+}
+
 
 void posfromT(double T[16], double pos[3])
 {

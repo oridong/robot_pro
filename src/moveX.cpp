@@ -17,23 +17,18 @@
  *                  speedRate：机械臂最大速度比例，取值0~1，用于调节机械臂最大速度
  * 输出-------------arm.splan：返回规划参数，每0.01s发送给驱动器一组
  */
-void moveJ(bodypart &arm, const double jointFinal[7], double speedRate)
+void moveJ(bodypart &arm, double jointFinal[7], double speedRate)
 {
     double angleFianl_beta[8];
     int angleFianl_beta_size[2];
-    double c_Tmax;
+    double c_Tmax = 0.0;
     int i;
-    double T[7];
-    int loop_ub;
     double angleInit[7];
-    memcpy(angleInit, arm.jointPos, sizeof(arm.jointPos));
+    double T[7];
     int motornum = sizeof(arm.motor)/sizeof(Motor);
+    memcpy(angleInit, arm.jointPos, sizeof(arm.jointPos));
     double sum = 0.0;
             
-    /* 1x8:7个关节角+此时的β */
-    /* 初始化 */
-    c_Tmax = 0.0;
-
     /* workMode = 0：此时在关节空间对7个关节进行规划 */
     /* 每一个关节规划包含16个参数：[Ta, Tv, Td, Tj1, Tj2, q_0, q_1, v_0, v_1, vlim, a_max, a_min, a_lima, a_limd, j_max, j_min, signOfQ0Q1] */
     double limit[4] = {M_PI, M_PI, M_PI, speedRate};
@@ -49,7 +44,7 @@ void moveJ(bodypart &arm, const double jointFinal[7], double speedRate)
         arm.state = IDLE;
         return;
     }
-
+    
     // 遍历电机进行s曲线规划
     for (i = 0; i < motornum; i++)
     {
@@ -76,6 +71,9 @@ void moveJ(bodypart &arm, const double jointFinal[7], double speedRate)
     // 改变机械臂状态，并得到规划总次数
     arm.s_planTimes = (int)(ceil(c_Tmax / 0.01 )); // 向上取整 定为0.01
     arm.state = ON_MOVEJ;
+    
+    arm.plan_cnt = 0;
+    arm.itp_period_times = 10;
 }
 
 /*
@@ -225,6 +223,8 @@ void moveLPoseChanged(bodypart &arm, double poseFinal[6], double speedRate)
     double rotInit[9],rotFinal[9],rotInit_t[9];
     /* 初始化 */
     ForwardKinematics(arm.jointPos, poseInit);
+
+
     rotfromT(poseInit, rotInit);
     rotfromT(poseFinal, rotFinal);
     matrixTrans(rotInit, 3, 3, rotInit_t);
@@ -237,8 +237,14 @@ void moveLPoseChanged(bodypart &arm, double poseFinal[6], double speedRate)
     /* [theta,rx,ry,rz] */
     /* 求解初末β */
     betaInit = FindBeta(arm.jointPos);
+
+    printf_d(arm.jointPos,7);
+    printf("betainit: %f\n",betaInit);
     InverseKinematics(arm.jointPos, poseFinal, -M_PI, 0.1, M_PI, angleFinal_data, angleFinal_size); /* 返回1x8矩阵，最后一个为beta值 */
     betaFinal = angleFinal_data[7];
+
+    printf("betafinal: %f\n",betaFinal);
+    printf_d(angleFinal_data,8);
 
     double locationFinal[3];
     memcpy(arm.locationInit, *(double(*)[3]) & poseInit[12], sizeof(arm.locationInit));
@@ -273,8 +279,10 @@ void moveLPoseChanged(bodypart &arm, double poseFinal[6], double speedRate)
     arm.s_line.deltaTime = 0.01 * T[0] / Tmax;
     arm.s_beta.deltaTime = 0.01 * T[1] / Tmax;
     arm.s_equat.deltaTime = 0.01 * T[2] / Tmax;
-    
+
     arm.state = ON_MOVEL;
+    arm.plan_cnt = 0;
+    arm.itp_period_times = 10;
 }
 
 /*

@@ -276,6 +276,8 @@ int leftarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * motor
             arm.motor[j].plan_run_time = 0.0f;
 
             arm.jointGear[j] = leftarmGear[j];
+
+            arm.movefollowCnt = 0;
         }
 
         arm.motor[i].sc_dig_out = ecrt_master_slave_config(m, motor_pos[i].alias, motor_pos[i].buspos, ELMO_GOLD);
@@ -840,7 +842,7 @@ void readArmData(bodypart & arm)
     int motornum = sizeof(arm.motor)/sizeof(Motor);
     for (i = 0; i < motornum; i++)
     {
-        if (i == 0){
+        if (i == -1){
             arm.motor[i].act_position = EC_READ_S32(domain[arm.dm_index].domain_pd + arm.motor[i].offset.act_position);
         }
         else{
@@ -918,144 +920,128 @@ void ctrlArmMotor(bodypart &arm)
     
     switch (arm.state)
     {
-    case ON_MOVEL:
-
-        t_line = S_position(arm.s_line.time, arm.s_line.para);
-        location[0] = arm.locationInit[0] + arm.locationDelta[0] * t_line;
-        location[1] = arm.locationInit[1] + arm.locationDelta[1] * t_line;
-        location[2] = arm.locationInit[2] + arm.locationDelta[2] * t_line;
-
-        beta_line = S_position(arm.s_beta.time, arm.s_beta.para);
-        equat_line[0] = S_position(arm.s_equat.time, arm.s_equat.para);
-        equat_line[1] = arm.rEquivalent[1];
-        equat_line[2] = arm.rEquivalent[2];
-        equat_line[3] = arm.rEquivalent[3];
-
-        // 将当前位置与初始姿态组成位姿矩阵
-        quat2rot(equat_line, rot_);
-        matrixMultiply(rot_, 3, 3, arm.rotInit, 3, 3, R);
-        TfromRotPos(R, location, pose_line);
-
-        InverseKinematics(arm.jointPos, pose_line, beta_line, 0, beta_line, angle_planned, angle_planned_size);
-        for (j = 0; j < 7; j++)
-        {
-            arm.motor[j].exp_position = angle_planned[j];
-            angle_delta[j] = fabs(angle_planned[j] - arm.jointPos[j]);
-        }
-        maxAngle = max(angle_delta, 7);
-        if (maxAngle > 0.05)
-        {
-            printf("failed when excuting,%f\n", maxAngle);
-        }
-
-        arm.s_line.time += arm.s_line.deltaTime;
-        arm.s_beta.time += arm.s_beta.deltaTime;
-        arm.s_equat.time += arm.s_equat.deltaTime;
-
-        if (arm.s_line.time > arm.s_planTimes * arm.s_line.deltaTime)
-        {
-            arm.state = IDLE;
-        }
-
-        for (i = 0; i < motornum; i++)
-        {
-            if (arm.motor[i].plan_cnt == 0) //规划周期到达，进行插值规划
+        case ON_MOVEL:
+            if (arm.s_planTimes < 0)        // 规划时间完毕
             {
-                /********************* 电机轨迹精插值运动 **********************/
-                interpolation(arm.motor[i]);
+                arm.state = IDLE;
             }
-            arm.motor[i].plan_run_time = double(arm.motor[i].plan_cnt) * double(ctl_period) / 1e9;
-            arm.motor[i].this_send = arm.motor[i].plan_param[0] + arm.motor[i].plan_param[1] * arm.motor[i].plan_run_time + arm.motor[i].plan_param[2] * arm.motor[i].plan_run_time * arm.motor[i].plan_run_time + arm.motor[i].plan_param[3] * arm.motor[i].plan_run_time * arm.motor[i].plan_run_time * arm.motor[i].plan_run_time;
-
-            arm.motor[i].plan_cnt++;
-            if (arm.motor[i].plan_cnt == arm.motor[i].itp_period_times)
+            
+            if (arm.plan_cnt == 0) //规划周期到达，进行插值规划
             {
-                arm.motor[i].plan_cnt = 0;
+                t_line = S_position(arm.s_line.time, arm.s_line.para);
+                location[0] = arm.locationInit[0] + arm.locationDelta[0] * t_line;
+                location[1] = arm.locationInit[1] + arm.locationDelta[1] * t_line;
+                location[2] = arm.locationInit[2] + arm.locationDelta[2] * t_line;
+
+                beta_line = S_position(arm.s_beta.time, arm.s_beta.para);
+                equat_line[0] = S_position(arm.s_equat.time, arm.s_equat.para);
+                equat_line[1] = arm.rEquivalent[1];
+                equat_line[2] = arm.rEquivalent[2];
+                equat_line[3] = arm.rEquivalent[3];
+
+                // 将当前位置与初始姿态组成位姿矩阵
+                quat2rot(equat_line, rot_);
+                matrixMultiply(rot_, 3, 3, arm.rotInit, 3, 3, R);
+                TfromRotPos(R, location, pose_line);
+
+                InverseKinematics(arm.jointPos, pose_line, beta_line, 0, beta_line, angle_planned, angle_planned_size);
+
+                if (angle_planned_size[1] == 8)
+                {
+                    for (i = 0; i < motornum; i++)
+                    {
+                        arm.motor[i].exp_position = angle_planned[i] * arm.jointGear[i];
+                        // if (j ==0) printf("%f,%f,%f\n",angle_planned[0], arm.jointGear[0], arm.jointPos[0]);
+                        angle_delta[i] = fabs(angle_planned[i] - arm.jointPos[i]);
+                    }
+                }
+                else{
+                    printf("Inverse Kinematics Failed\n");
+                }
+                
+                arm.s_line.time += arm.s_line.deltaTime;
+                arm.s_beta.time += arm.s_beta.deltaTime;
+                arm.s_equat.time += arm.s_equat.deltaTime;
+
+                arm.s_planTimes --;
+                printf("%d\n",arm.s_planTimes);
             }
 
-            /********************** 填写指令，等待发送 **********************/
-            if (i == 0){
-                // printf("%d\n",int(arm.motor[i].this_send));
-                if (arm.state != ON_MOVE_FOLLOW)
-                EC_WRITE_S32(domain[arm.dm_index].domain_pd + arm.motor[i].offset.target_position, int(arm.motor[i].this_send));
+            // 规划周期计数器，itp_period_times次触发
+            arm.plan_cnt ++ ;
+            if (arm.plan_cnt == arm.itp_period_times)
+            {
+                arm.plan_cnt = 0;
             }
-        }
+
+            maxAngle = max(angle_delta, 7);
+            if (maxAngle > 0.05)
+            {
+                printf("may fail when excuting,%f\n", maxAngle);
+            }
+
+        break;
         
-        break;
-    
-    case ON_MOVEJ:
-        /********************* 电机轨迹S曲线插值运动 **********************/
-        for (i = 0; i < motornum; i++)      //遍历每个电机
-        {
-            if (arm.motor[i].plan_cnt == 0) //规划周期到达，进行插值规划
+        case ON_MOVEJ:
+            if (arm.s_planTimes < 0)        // 规划时间完毕
             {
-                if (arm.s_planTimes < 0)        // 规划时间完毕
+                arm.state = IDLE;
+            }
+        
+            if (arm.plan_cnt == 0) //规划周期到达，进行插值规划， 更新exp_position
+            {
+                for ( i = 0; i< motornum; i++)
                 {
-                    arm.state = IDLE;
+                    arm.motor[i].exp_position = S_position(arm.motor[i].sp.time, arm.motor[i].sp.para) * arm.jointGear[i];
+                    arm.motor[i].sp.time += arm.motor[i].sp.deltaTime;
                 }
-                if (i == 0)     // 只针对一个电机进行相减
-                {
-                    arm.s_planTimes --;
-                    printf("%d\n",arm.s_planTimes);
-                }
-
-                arm.motor[i].exp_position = S_position(arm.motor[i].sp.time, arm.motor[i].sp.para) * arm.jointGear[i];
-                arm.motor[i].sp.time += arm.motor[i].sp.deltaTime;
-
-                /********************* 电机轨迹精插值运动 **********************/
-                interpolation(arm.motor[i]);
+                arm.s_planTimes --;
+                printf("%d\n",arm.s_planTimes);
             }
-            arm.motor[i].plan_run_time = double(arm.motor[i].plan_cnt) * double(ctl_period) / 1e9;
-            arm.motor[i].this_send = arm.motor[i].plan_param[0] + arm.motor[i].plan_param[1] * arm.motor[i].plan_run_time + arm.motor[i].plan_param[2] * arm.motor[i].plan_run_time * arm.motor[i].plan_run_time + arm.motor[i].plan_param[3] * arm.motor[i].plan_run_time * arm.motor[i].plan_run_time * arm.motor[i].plan_run_time;
 
-            arm.motor[i].plan_cnt++;
-            if (arm.motor[i].plan_cnt == arm.motor[i].itp_period_times)
+            arm.plan_cnt ++ ;
+            if (arm.plan_cnt == arm.itp_period_times)
             {
-                arm.motor[i].plan_cnt = 0;
+                arm.plan_cnt = 0;
             }
 
-            /********************** 填写指令，等待发送 **********************/
-            if (i == 0){
-                // printf("%d\n",int(arm.motor[i].this_send));
-                if (arm.state != ON_MOVE_FOLLOW)
-                EC_WRITE_S32(domain[arm.dm_index].domain_pd + arm.motor[i].offset.target_position, int(arm.motor[i].this_send));
-            }
-        }
-        break;
+            break;
 
-    case ON_MOVE_FOLLOW:
-        for (i = 0; i < motornum; i++)
-        {
-            if (arm.motor[i].plan_cnt == 0) //规划周期到达，进行插值规划
-            {
-                /********************* 电机轨迹精插值运动 **********************/
-                interpolation(arm.motor[i]);
-            }
-            arm.motor[i].plan_run_time = double(arm.motor[i].plan_cnt) * double(ctl_period) / 1e9;
-            arm.motor[i].this_send = arm.motor[i].plan_param[0] + arm.motor[i].plan_param[1] * arm.motor[i].plan_run_time + arm.motor[i].plan_param[2] * arm.motor[i].plan_run_time * arm.motor[i].plan_run_time + arm.motor[i].plan_param[3] * arm.motor[i].plan_run_time * arm.motor[i].plan_run_time * arm.motor[i].plan_run_time;
+        case ON_MOVE_FOLLOW:
 
-            arm.motor[i].plan_cnt++;
-            if (arm.motor[i].plan_cnt == arm.motor[i].itp_period_times)
-            {
-                arm.motor[i].plan_cnt = 0;
-            }
+            break;
 
-            /********************** 填写指令，等待发送 **********************/
-            if (i == 0){
-                // printf("%d\n",int(arm.motor[i].this_send));
-                if (arm.state != ON_MOVE_FOLLOW)
-                EC_WRITE_S32(domain[arm.dm_index].domain_pd + arm.motor[i].offset.target_position, int(arm.motor[i].this_send));
-            }
-        }
-        break;
+        case IDLE :
 
-    case IDLE :
-
-        break;
-    default:
-        break;
+            break;
+        default:
+            break;
     }
 
+    // 电机遍历取值
+    for (i = 0; i < motornum; i++)
+    {
+        /********************* 电机轨迹精插值规划 **********************/
+        if (arm.motor[i].plan_cnt == 0)
+        {
+            interpolation(arm.motor[i]);
+        }
+        /********************* 电机轨迹精插值运动 **********************/
+        arm.motor[i].plan_run_time = double(arm.motor[i].plan_cnt) * double(ctl_period) / 1e9;
+        arm.motor[i].this_send = arm.motor[i].plan_param[0] + arm.motor[i].plan_param[1] * arm.motor[i].plan_run_time + arm.motor[i].plan_param[2] * arm.motor[i].plan_run_time * arm.motor[i].plan_run_time + arm.motor[i].plan_param[3] * arm.motor[i].plan_run_time * arm.motor[i].plan_run_time * arm.motor[i].plan_run_time;
+
+        arm.motor[i].plan_cnt++;
+        if (arm.motor[i].plan_cnt == arm.motor[i].itp_period_times)
+        {
+            arm.motor[i].plan_cnt = 0;
+        }
+        /********************** 填写指令，等待发送 **********************/
+        if (i == -1){
+            // printf("%d\n",int(arm.motor[i].this_send));
+            if (arm.state != ON_MOVE_FOLLOW)
+            EC_WRITE_S32(domain[arm.dm_index].domain_pd + arm.motor[i].offset.target_position, int(arm.motor[i].this_send));
+        }
+    }
 }
 
 /*
@@ -1065,30 +1051,50 @@ void ctrlheadMotor(bodypart &head)
 {
     int i, j;
     int motornum = 3;
+   
+    switch (head.state)
+    {
+    case ON_MOVEL:
+
+        break;
+    
+    case ON_MOVEJ:
+        if (head.s_planTimes < 0)        // 规划时间完毕
+        {
+            head.state = IDLE;
+        }
+    
+        if (head.plan_cnt == 0) //规划周期到达，进行插值规划， 更新exp_position
+        {
+            for ( i = 0; i< motornum; i++)
+            {
+                /********************* 电机轨迹S曲线插值运动 **********************/
+                head.motor[i].exp_position = S_position(head.motor[i].sp.time, head.motor[i].sp.para) * head.jointGear[i];
+                head.motor[i].sp.time += head.motor[i].sp.deltaTime;
+            }
+            head.s_planTimes --;
+            printf("%d\n",head.s_planTimes);
+        }
+
+        head.plan_cnt ++ ;
+        if (head.plan_cnt == head.itp_period_times)
+        {
+            head.plan_cnt = 0;
+        }
+        
+        break;
+
+    case ON_MOVE_FOLLOW:
+    
+        break;
+    default:
+        break;
+    }
 
     for (i = 0; i < motornum; i++)
     {
         if (head.motor[i].plan_cnt == 0) //规划周期到达，进行插值规划
         {
-             switch (head.state)
-            {
-            case ON_MOVEL:
-
-                break;
-            
-            case ON_MOVEJ:
-                /********************* 电机轨迹S曲线插值运动 **********************/
-                head.motor[i].exp_position = S_position(head.motor[i].sp.time, head.motor[i].sp.para) * head.jointGear[i];
-                head.motor[i].sp.time += head.motor[i].sp.deltaTime;
-                break;
-
-            case ON_MOVE_FOLLOW:
-                ;
-                break;
-            default:
-                break;
-            }
-
             /********************* 电机轨迹精插值运动 **********************/
             interpolation(head.motor[i]);
         }
@@ -1103,6 +1109,21 @@ void ctrlheadMotor(bodypart &head)
 
         /********************** 填写指令，等待发送 **********************/
         // EC_WRITE_S32(domain[head.dm_index].domain_pd + head.motor[i].offset.target_position, int(head.motor[i].this_send));
+    }
+
+}
+
+// 检查follow超时，timeout单位为秒
+void check_follow(bodypart & arm, double timeout)
+{
+    if (arm.state == ON_MOVE_FOLLOW)
+    {
+        arm.movefollowCnt ++;
+        if (arm.movefollowCnt >= (int)(timeout / ((double)ctl_period /1e9 )) )
+        {
+            arm.movefollowCnt = 0;
+            arm.state = IDLE;
+        }
     }
 }
 
@@ -1178,7 +1199,6 @@ void realtime_proc(void *arg)
             readArmData(leftarm);
             readArmData(rightarm);
             
-
             /********************** 接受并解析指令 根据指令进行控制 **********************/
             cmd = robotReceiveCommand();
 
@@ -1229,13 +1249,19 @@ void realtime_proc(void *arg)
                         printf("Inverse Kinematics Failed\n");
                     }
                 }
+                else if (cmd.param_cnt == 5)     // 给定头部关节角
+                {
+                    for (i = 0;i < 3; i++)
+                    {
+                        jointFinal[i] = atof(cmd.param_list[i + 1]);
+                    }
+                }
                 else{
                     break;
                 }
                 
                 if (left_right == LEFT)
                 {
-                    printf("%d\n", leftarm.state);
                     if (leftarm.state == IDLE)
                     {
                         moveJ(leftarm, jointFinal, speedRate);
@@ -1248,6 +1274,14 @@ void realtime_proc(void *arg)
                         moveJ(rightarm, jointFinal, speedRate);
                     }
                 }
+                else if (left_right == HEAD)
+                {
+                    if (head.state == IDLE)
+                    {
+                        moveJ(head, jointFinal, speedRate);
+                    }
+                }
+                
                 // printf("%f,%f\n",leftarm.motor[0].sp.para[0],leftarm.motor[0].sp.para[1]);
                 break;
 
@@ -1296,7 +1330,11 @@ void realtime_proc(void *arg)
                         jointFinal[i] = atof(cmd.param_list[i + 1]);
                     }
                 }
-
+                else
+                {
+                    break;
+                }
+                
                 if (left_right == LEFT)
                 {
                     for (i = 0; i < 7; i++)
@@ -1327,14 +1365,37 @@ void realtime_proc(void *arg)
 
                 break;
 
-            case HEAD_MOVE:
+            case HEADL:
+                if (cmd.param_cnt == 3)     // 给定关节角
+                {
+                    for (i = 0;i < 6; i++)
+                    {
+                        if (i < 3)
+                        {
+                            jointFinal[i] = 0.0;
+                        }
+                        else
+                        {
+                            poseFinal[i] = atof(cmd.param_list[i - 3]);
+                        }
+                    }
+                    pose2T(poseFinal, Tfinal);
+
+                }
+                else
+                {
+                    break;
+                }
                 head.motor[0].exp_position = atoi(cmd.param_list[0]);
                 head.motor[1].exp_position = atoi(cmd.param_list[1]);
                 head.motor[2].exp_position = atoi(cmd.param_list[2]);
                 printf("%f,%f,%f\n", head.motor[0].exp_position, head.motor[1].exp_position, head.motor[2].exp_position);
                 break;
-            case NO_RECV:
 
+            case NO_RECV:
+                check_follow(leftarm, 0.5);
+                check_follow(rightarm, 0.5);
+                
                 break;
             case ERROR_MATCH:
 
@@ -1343,6 +1404,7 @@ void realtime_proc(void *arg)
 
             /********************** 遍历各身体部位进行控制 **********************/
             ctrlArmMotor(leftarm);       // 控制左臂电机运动
+            ctrlArmMotor(rightarm);       // 控制左臂电机运动
             // ctrlheadMotor(head);         // 控制头部电机运动
             
             robotSendFeedback(leftarm, rightarm, head, track);
@@ -1362,7 +1424,6 @@ void realtime_proc(void *arg)
             // printf( "AKD: Loop time : %ldus\n",(long)period);
             prev_second = tv.tv_sec;
         }
-
 
         // send process data
         ecrt_domain_queue(domain[0].domain);
@@ -1442,7 +1503,6 @@ int main(int argc, char *argv[])
     if (!headInit(head, master0, 0, right_slave_pos)) return -1;       // 配置头从站， 包括3个关节电机,master0, domain0
     printf("head init successed...\n");
     
-    // rightarmInit(rightarm, master1, 1, right_slave_pos);       // 配置左臂从站， 包括7个关节电机和1个力传感器, master0, domain0
     EC_position ft_pos = {0,0};
     if (!FT_sensor_init(rightarm, master1, 1, ft_pos)) return -1;
     printf("rightarm ftsensor init successed...\n");

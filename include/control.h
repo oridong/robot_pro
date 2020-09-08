@@ -143,6 +143,9 @@ typedef struct
     ft_sensor endft;
     int dm_index;
 
+    uint16_t plan_cnt;
+    uint16_t itp_period_times;
+
     int s_planTimes;
     splan s_line;
     double rotInit[9];
@@ -154,7 +157,10 @@ typedef struct
     splan s_equat;
     double rEquivalent[4];
 
+    // flags 
     int state;
+    uint16_t movefollowCnt;
+
 }bodypart;
 
 

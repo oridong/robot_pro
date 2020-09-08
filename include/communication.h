@@ -11,7 +11,7 @@
 # define CTRL_IP "10.8.0.2" 
 # define CTRL_PORT 8001
 
-# define Nvidia_IP "10.8.0.4" 
+# define Nvidia_IP "192.168.50.13" 
 # define Nvidia_PORT 8002
 
 # define ROBOT_IP "10.8.0.3" //"10.1.76.247"//
@@ -22,7 +22,7 @@
 # define PARAM_SIZE 200     // 后跟随参数大小
 # define PARAM_LIST_SIZE 20 // 每个参数大小
 
-# define HEAD_MOVE 0
+# define HEADL 0
 # define CAR_MOVE 1
 # define STOP_ALL 2
 # define ENABLE_MOTOR 3
@@ -36,7 +36,7 @@
 
 
 const char cmd_table[][CMD_SIZE] = {
-    "headMove",
+    "headL",
     "carmove",
     "stopAll",
     "EnMotor",
