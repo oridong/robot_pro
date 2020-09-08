@@ -74,7 +74,7 @@
 #define MotorNum 1 // 使用的电机数量
 
 // EtherCAT 电机总线地址
-static EC_position left_slave_pos[] = {{0, 0}, {0, 1}, {0, 2}, {0, 2}, {0, 2}, {0, 2}, {0, 2}, {0, 0},}; 
+static EC_position left_slave_pos[] = {{0, 0}, {0, 1}, {0, 2}, {0, 3}, {0, 4}, {0, 5}, {0, 6}, {0, 0},}; 
 static EC_position right_slave_pos[] = {{0, 0}, {0, 1}, {0, 2}, {0, 2}, {0, 2}, {0, 2}, {0, 2}, {0, 0},};
   
 static double leftarmGear[7] = {100.0 * 4096, 100.0 * 4096, 100.0 * 4096, 100.0 * 4096, 100.0 * 4096, 100.0 * 4096, 100.0 * 4096};
@@ -241,7 +241,9 @@ int leftarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * motor
 {
     arm.dm_index = dm_index;        // 记录当前身体部分所使用的domain
     int i = 0,j = 0;
-    for (i = 0; i < 1; i++)     // ！！！！！！！！！ 只初始化一个电机作为实验 // sizeof(arm.motor)/sizeof(Motor)
+    arm.movefollowCnt = 0;
+
+    for (i = 0; i < 7; i++)     // ！！！！！！！！！ 只初始化一个电机作为实验 // sizeof(arm.motor)/sizeof(Motor)
     {
         arm.motor[i].alias = motor_pos->alias;
         arm.motor[i].buspos = motor_pos->buspos;
@@ -264,21 +266,20 @@ int leftarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * motor
         domain[dm_index].domain_reg.push_back(temp7);
         domain[dm_index].domain_reg.push_back(temp8);
 
-        for (j = 0; j< 7; j ++)     // 临时
-        {
-            arm.motor[j].first_time = 0;
-            arm.motor[j].exp_position = 0;
-            arm.motor[j].act_position = 0;
-            arm.motor[j].mode = armMotorMode;
-            arm.motor[j].this_send = 0;
-            arm.motor[j].itp_period_times = armMotoritpTimes[j];
-            arm.motor[j].plan_cnt = 0;
-            arm.motor[j].plan_run_time = 0.0f;
+        // for (j = 0; j< 7; j ++)     // 临时
+        // {
+            arm.motor[i].first_time = 0;
+            arm.motor[i].exp_position = 0;
+            arm.motor[i].act_position = 0;
+            arm.motor[i].mode = armMotorMode;
+            arm.motor[i].this_send = 0;
+            arm.motor[i].itp_period_times = armMotoritpTimes[i];
+            arm.motor[i].plan_cnt = 0;
+            arm.motor[i].plan_run_time = 0.0f;
 
-            arm.jointGear[j] = leftarmGear[j];
+            arm.jointGear[i] = leftarmGear[i];
 
-            arm.movefollowCnt = 0;
-        }
+        // }
 
         arm.motor[i].sc_dig_out = ecrt_master_slave_config(m, motor_pos[i].alias, motor_pos[i].buspos, ELMO_GOLD);
         if (!arm.motor[i].sc_dig_out)
@@ -842,12 +843,12 @@ void readArmData(bodypart & arm)
     int motornum = sizeof(arm.motor)/sizeof(Motor);
     for (i = 0; i < motornum; i++)
     {
-        if (i == -1){
-            arm.motor[i].act_position = EC_READ_S32(domain[arm.dm_index].domain_pd + arm.motor[i].offset.act_position);
-        }
-        else{
+        // if (i == -1){
+            // arm.motor[i].act_position = EC_READ_S32(domain[arm.dm_index].domain_pd + arm.motor[i].offset.act_position);
+        // }
+        // else{
             arm.motor[i].act_position = arm.motor[i].this_send;
-        }
+        // }
 
         arm.motor[i].ain = EC_READ_U32(domain[arm.dm_index].domain_pd + arm.motor[i].offset.ain);
         if (arm.motor[i].first_time == 0) // 初次进入，记录开机时刻位置作为期望位置
@@ -1036,11 +1037,11 @@ void ctrlArmMotor(bodypart &arm)
             arm.motor[i].plan_cnt = 0;
         }
         /********************** 填写指令，等待发送 **********************/
-        if (i == -1){
-            // printf("%d\n",int(arm.motor[i].this_send));
-            if (arm.state != ON_MOVE_FOLLOW)
+        // if (i == -1){
+        //     // printf("%d\n",int(arm.motor[i].this_send));
+        //     if (arm.state != ON_MOVE_FOLLOW)
             EC_WRITE_S32(domain[arm.dm_index].domain_pd + arm.motor[i].offset.target_position, int(arm.motor[i].this_send));
-        }
+        // }
     }
 }
 
@@ -1169,11 +1170,11 @@ void realtime_proc(void *arg)
 
         case CONFIG_ELMO:
 
-            for (i = 0; i < 1; i++) // 临时为1 sizeof(leftarm.motor)/sizeof(Motor)
+            for (i = 0; i < 7; i++) // 临时为1 sizeof(leftarm.motor)/sizeof(Motor)
             {
                 EC_WRITE_U8(domain[leftarm.dm_index].domain_pd + leftarm.motor[i].offset.mode_operation, leftarm.motor[i].mode);
             }
-            ready = changeBodyMotorState(leftarm, 0, SWITCHED_ON);      // 临时为0
+            ready = changeBodyMotorState(leftarm, -1, SWITCHED_ON);      // 临时为0
 
             // printf("time: %ld, ready:%d\n", (long)previous, ready);
             if (ready)
@@ -1185,7 +1186,7 @@ void realtime_proc(void *arg)
 
         case ENABLE:
 
-            ready = changeBodyMotorState(leftarm, 0, OPERATION_ENABLE);      // 临时为0
+            ready = changeBodyMotorState(leftarm, -1, OPERATION_ENABLE);      // 临时为0
             if (ready)
             {
                 printf("Elmo Enable Finished.\n");
@@ -1274,13 +1275,13 @@ void realtime_proc(void *arg)
                         moveJ(rightarm, jointFinal, speedRate);
                     }
                 }
-                else if (left_right == HEAD)
-                {
-                    if (head.state == IDLE)
-                    {
-                        moveJ(head, jointFinal, speedRate);
-                    }
-                }
+                // else if (left_right == HEAD)
+                // {
+                //     if (head.state == IDLE)
+                //     {
+                //         moveJ(head, jointFinal, speedRate);
+                //     }
+                // }
                 
                 // printf("%f,%f\n",leftarm.motor[0].sp.para[0],leftarm.motor[0].sp.para[1]);
                 break;
@@ -1314,7 +1315,7 @@ void realtime_proc(void *arg)
                 
                 break;
 
-            case MOVE_FOLLOW:
+            case MOVE_FOLLOW:       
                 left_right = atoi(cmd.param_list[0]);
                 if (cmd.param_cnt == 8)     // 给定关节角
                 {
@@ -1365,7 +1366,7 @@ void realtime_proc(void *arg)
 
                 break;
 
-            case HEADL:
+            case HEADL:     //TODO
                 if (cmd.param_cnt == 3)     // 给定关节角
                 {
                     for (i = 0;i < 6; i++)
@@ -1404,7 +1405,7 @@ void realtime_proc(void *arg)
 
             /********************** 遍历各身体部位进行控制 **********************/
             ctrlArmMotor(leftarm);       // 控制左臂电机运动
-            ctrlArmMotor(rightarm);       // 控制左臂电机运动
+            // ctrlArmMotor(rightarm);       // 控制左臂电机运动
             // ctrlheadMotor(head);         // 控制头部电机运动
             
             robotSendFeedback(leftarm, rightarm, head, track);
