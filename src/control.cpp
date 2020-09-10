@@ -242,6 +242,7 @@ int leftarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * motor
     arm.dm_index = dm_index;        // 记录当前身体部分所使用的domain
     int i = 0,j = 0;
     arm.movefollowCnt = 0;
+    arm.motornum = 7;
 
     for (i = 0; i < 7; i++)     // ！！！！！！！！！ 只初始化一个电机作为实验 // sizeof(arm.motor)/sizeof(Motor)
     {
@@ -341,6 +342,8 @@ int leftarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * motor
 int rightarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * motor_pos)
 {
     arm.dm_index = dm_index;        // 记录当前身体部分所使用的domain
+    arm.movefollowCnt = 0;
+    arm.motornum = 7;
     int i = 0,j = 0;
     for (j = 0; j< 7; j ++)     // 临时
     {
@@ -449,6 +452,9 @@ int rightarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * moto
 int headInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * motor_pos)
 {
     arm.dm_index = dm_index;        // 记录当前身体部分所使用的domain
+    arm.motornum = 3;
+    arm.movefollowCnt = 0;
+
     int i = 0,j = 0;
     for (j = 0; j< 3; j ++)     // 临时
     {
@@ -542,10 +548,6 @@ int headInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * motor_po
 
     } /* motor 循环*/
 
-    // 初始化力传感器从站
-    // EC_position ft_pos = {motor_pos[7].alias, motor_pos[7].buspos};
-    // i = FT_sensor_init(arm, m, dm_index, ft_pos);
-    // return i;
     return 1;
 }
 
@@ -840,14 +842,13 @@ void stopArmMotor(bodypart & arm)
 void readArmData(bodypart & arm)
 {
     int i;
-    int motornum = sizeof(arm.motor)/sizeof(Motor);
-    for (i = 0; i < motornum; i++)
+    for (i = 0; i < arm.motornum; i++)
     {
-        // if (i == -1){
-            // arm.motor[i].act_position = EC_READ_S32(domain[arm.dm_index].domain_pd + arm.motor[i].offset.act_position);
+        // if (i == 0){
+            arm.motor[i].act_position = EC_READ_S32(domain[arm.dm_index].domain_pd + arm.motor[i].offset.act_position);
         // }
         // else{
-            arm.motor[i].act_position = arm.motor[i].this_send;
+        //     arm.motor[i].act_position = arm.motor[i].this_send;
         // }
 
         arm.motor[i].ain = EC_READ_U32(domain[arm.dm_index].domain_pd + arm.motor[i].offset.ain);
@@ -1019,8 +1020,8 @@ void ctrlArmMotor(bodypart &arm)
             break;
     }
 
-    // 电机遍历取值
-    for (i = 0; i < motornum; i++)
+    // 电机遍历取值，精插补
+    for (i = 0; i < arm.motornum; i++)
     {
         /********************* 电机轨迹精插值规划 **********************/
         if (arm.motor[i].plan_cnt == 0)
@@ -1036,13 +1037,22 @@ void ctrlArmMotor(bodypart &arm)
         {
             arm.motor[i].plan_cnt = 0;
         }
-        /********************** 填写指令，等待发送 **********************/
+    }
+
+    // if (arm.fotceCtrl.switch == 1)
+    // {
+
+    // }
+    /********************** 填写指令，等待发送 **********************/
+    for (i = 0 ; i< arm.motornum; i++)
+    {
         // if (i == -1){
         //     // printf("%d\n",int(arm.motor[i].this_send));
         //     if (arm.state != ON_MOVE_FOLLOW)
             EC_WRITE_S32(domain[arm.dm_index].domain_pd + arm.motor[i].offset.target_position, int(arm.motor[i].this_send));
         // }
     }
+    
 }
 
 /*

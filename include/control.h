@@ -137,11 +137,12 @@ typedef struct
 {
     double T00[16];
     Motor motor[7];
+    uint8_t motornum;
     double jointPos[7];
     double jointGear[7];
 
     ft_sensor endft;
-    int dm_index;
+    int dm_index;       // ethercat domain 序号
 
     uint16_t plan_cnt;
     uint16_t itp_period_times;
