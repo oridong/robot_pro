@@ -51,7 +51,7 @@ LDFLAGS += $(foreach lib, $(LIBS), -l$(lib))
 all: build
 
 build:
-	$(CPP) -c $(CFLAGS) $(SRCS) 
+	$(CPP) -c $(CFLAGS) $(SRCS) $(SRCS2)
 	$(CPP) $(CFLAGS) -o $(TARGET) $(OBJS) $(LDFLAGS)
 #	$(RM) $(OBJS)
 

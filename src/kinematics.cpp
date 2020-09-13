@@ -922,10 +922,9 @@ void TfromRotPos(const double rot[9], const double pos[3], double trans[16])
     trans[15] = 1.0;
 }
 
-
-void pose2T(double pose[6], double T[16])   // XYZ 顺规
+void TfromPose(double pose[6], double T[16])   // ZYX 顺规 先旋转x 后y， 后z R = Rz*Ry*Rx
 {
-    double sr = sin(pose[3]);
+    double sr = sin(pose[3]);    // 弧度
     double cr = cos(pose[3]);
     double sp = sin(pose[4]);
     double cp = cos(pose[4]);
@@ -936,7 +935,157 @@ void pose2T(double pose[6], double T[16])   // XYZ 顺规
     double Rz[9] = {cy, sy, 0, -sy, cy, 0, 0, 0, 1};
     double t1[9],t2[9];
     
-    matrixMultiply(Rx,3,3,Ry,3,3,t1);
-    matrixMultiply(t1,3,3,Rz,3,3,t2);
+    matrixMultiply(Rz,3,3,Ry,3,3,t1);
+    matrixMultiply(t1,3,3,Rx,3,3,t2);
     TfromRotPos(t2, *(double(*)[3])&pose[0], T);
+}
+
+void PosefromT(double T[16], double pose[6])
+{
+    double rot[9], rot_[9], I[9];
+    int i ;
+    double sum;
+
+    rotfromT(T, rot);
+    matrixTrans(rot, 3, 3, rot_);
+    matrixMultiply(rot, 3, 3, rot_, 3, 3, I);
+    sum = 0.0;
+    for ( i = 0; i< 9; i++)
+    {
+        if (i % 4 == 0)
+        {
+            sum += (1.0 - I[i]) * (1.0 - I[i]);
+        }
+        else
+        {
+            sum += I[i] * I[i];
+        }
+    }
+    sum = sqrt(sum);
+    if (sum > 1e-3)
+    {
+        pose[3] = 0;
+        pose[4] = 0;
+        pose[5] = 0;
+        printf("Invalid rotation matrix\n");
+    }
+
+    double sy = sqrt(rot[0] * rot[0] + rot[1] * rot[1]);
+    bool singular = (sy < 1e-6);
+    double x, y, z;
+    if (!singular)
+    {
+        pose[3] = atan2( rot[5], rot[8]);
+        pose[4] = atan2(-rot[2], sy);
+        pose[5] = atan2( rot[1], rot[0]);
+    }
+    else
+    {
+        pose[3] = atan2(-rot[7], rot[4]);
+        pose[4] = atan2(-rot[2], sy);
+        pose[5] = 0;
+    }
+
+    pose[0] = T[12];
+    pose[1] = T[13];
+    pose[2] = T[14];
+
+}
+
+void Jacobian(double jointangle[6], double J[42])
+{
+    double x1 = jointangle[0];
+    double x2 = jointangle[1];
+    double x3 = jointangle[2];
+    double x4 = jointangle[3];
+    double x5 = jointangle[4];
+    double x6 = jointangle[5];
+    double x7 = jointangle[6];
+    
+    double a = 30;
+    double d = 449.5;
+
+    double jv0[21];
+    double jv7[21];
+
+    int i, j;
+
+    jv0[0 + 0 * 3] = a*(cos(x4)*(cos(x1)*sin(x3)+sin(x1)*cos(x2)*cos(x3))-sin(x1)*sin(x2)*sin(x4))+d*(sin(x4)*(cos(x1)*sin(x3)+sin(x1)*cos(x2)*cos(x3))+sin(x1)*sin(x2)*cos(x4))-a*(cos(x1)*sin(x3)+sin(x1)*cos(x2)*cos(x3))+d*sin(x1)*sin(x2);
+	jv0[0 + 1 * 3] = a*(cos(x4)*cos(x1)*sin(x2)*cos(x3)+cos(x1)*cos(x2)*sin(x4))+d*(sin(x4)*cos(x1)*sin(x2)*cos(x3)-cos(x1)*cos(x2)*cos(x4))-a*cos(x1)*sin(x2)*cos(x3)-d*cos(x1)*cos(x2);
+	jv0[0 + 2 * 3] = a*(cos(x4)*(sin(x1)*cos(x3)+cos(x1)*cos(x2)*sin(x3)))+d*(sin(x4)*(sin(x1)*cos(x3)+cos(x1)*cos(x2)*sin(x3)))-a*(sin(x1)*cos(x3)+cos(x1)*cos(x2)*sin(x3));
+	jv0[0 + 3 * 3] = a*(-sin(x4)*(sin(x1)*sin(x3)-cos(x1)*cos(x2)*cos(x3))+cos(x1)*sin(x2)*cos(x4))+d*(cos(x4)*(sin(x1)*sin(x3)-cos(x1)*cos(x2)*cos(x3))+cos(x1)*sin(x2)*sin(x4));
+	jv0[0 + 4 * 3] = 0;
+	jv0[0 + 5 * 3] = 0;
+	jv0[0 + 6 * 3] = 0;
+
+	jv0[1 + 0 * 3] =	a*(-sin(x1)*sin(x3)+cos(x1)*cos(x2)*cos(x3))-d*(sin(x4)*(-sin(x1)*sin(x3)+cos(x1)*cos(x2)*cos(x3))+cos(x1)*sin(x2)*cos(x4))-a*(cos(x4)*(-sin(x1)*sin(x3)+cos(x1)*cos(x2)*cos(x3))-cos(x1)*sin(x2)*sin(x4))-d*cos(x1)*sin(x2);
+	jv0[1 + 1 * 3] = -a*sin(x1)*sin(x2)*cos(x3)-d*(-sin(x4)*sin(x1)*sin(x2)*cos(x3)+sin(x1)*cos(x2)*cos(x4))-a*(-cos(x4)*sin(x1)*sin(x2)*cos(x3)-sin(x1)*cos(x2)*sin(x4))-d*sin(x1)*cos(x2);
+	jv0[1 + 2 * 3] = a*(cos(x1)*cos(x3)-sin(x1)*cos(x2)*sin(x3))-d*sin(x4)*(cos(x1)*cos(x3)-sin(x1)*cos(x2)*sin(x3))-a*cos(x4)*(cos(x1)*cos(x3)-sin(x1)*cos(x2)*sin(x3));
+	jv0[1 + 3 * 3] =	-d*(cos(x4)*(cos(x1)*sin(x3)+sin(x1)*cos(x2)*cos(x3))-sin(x1)*sin(x2)*sin(x4))-a*(-sin(x4)*(cos(x1)*sin(x3)+sin(x1)*cos(x2)*cos(x3))-sin(x1)*sin(x2)*cos(x4));       
+	jv0[1 + 4 * 3] = 0;
+	jv0[1 + 5 * 3] = 0;
+	jv0[1 + 6 * 3] = 0;
+
+	jv0[2 + 0 * 3] = 0;
+	jv0[2 + 1 * 3] = -d*sin(x2)-a*(-sin(x2)*sin(x4)+cos(x2)*cos(x3)*cos(x4))+d*(-sin(x2)*cos(x4)-cos(x2)*cos(x3)*sin(x4))+a*cos(x2)*cos(x3);
+	jv0[2 + 2 * 3] = a*sin(x2)*sin(x3)*cos(x4)+d*sin(x2)*sin(x3)*sin(x4)-a*sin(x2)*sin(x3);        
+	jv0[2 + 3 * 3] = -a*(cos(x2)*cos(x4)-sin(x2)*cos(x3)*sin(x4))+d*(-cos(x2)*sin(x4)-sin(x2)*cos(x3)*cos(x4)); 
+	jv0[2 + 4 * 3] = 0;
+	jv0[2 + 5 * 3] = 0;
+	jv0[2 + 6 * 3] = 0;
+
+    double T07[16];
+    double rot[9], rot_[9];
+    ForwardKinematics(jointangle, T07);
+    rotfromT(T07, rot);
+    matrixTrans(rot, 3, 3, rot_);
+
+    matrixMultiply(rot_, 3, 3, jv0, 3, 7, jv7);
+
+    double j7w[21];
+
+    j7w[0 + 0 * 3] = 0;  	
+	j7w[1 + 0 * 3] = 0; 	
+	j7w[2 + 0 * 3] = 1; 	
+
+	j7w[0 + 1 * 3] = sin(x1);
+	j7w[1 + 1 * 3] = -cos(x1);	
+	j7w[2 + 1 * 3] = 0; 
+
+	j7w[0 + 2 * 3] = -cos(x1)*sin(x2); 	
+	j7w[1 + 2 * 3] = -sin(x1)*sin(x2); 	
+	j7w[2 + 2 * 3] = cos(x2); 
+
+	j7w[0 + 3 * 3] = sin(x1)*cos(x3)+cos(x1)*cos(x2)*sin(x3); 	
+	j7w[1 + 3 * 3] = sin(x1)*cos(x2)*sin(x3)-cos(x1)*cos(x3); 	
+	j7w[2 + 3 * 3] = sin(x2)*sin(x3); 	
+
+	j7w[0 + 4 * 3] = sin(x4)*(sin(x1)*sin(x3)-cos(x1)*cos(x2)*cos(x3))-cos(x1)*sin(x2)*cos(x4); 	
+	j7w[1 + 4 * 3] = -sin(x4)*(cos(x1)*sin(x3)+sin(x1)*cos(x2)*cos(x3))-sin(x1)*sin(x2)*cos(x4); 	
+	j7w[2 + 4 * 3] = cos(x2)*cos(x4)-sin(x2)*cos(x3)*sin(x4); 	
+
+	j7w[0 + 5 * 3] = cos(x5)*(sin(x1)*cos(x3)+cos(x1)*cos(x2)*sin(x3))-sin(x5)*(cos(x4)*(sin(x1)*sin(x3)-cos(x1)*cos(x2)*cos(x3))+cos(x1)*sin(x2)*sin(x4));  	
+	j7w[1 + 5 * 3] = sin(x5)*(cos(x4)*(cos(x1)*sin(x3)+sin(x1)*cos(x2)*cos(x3))-sin(x1)*sin(x2)*sin(x4))-cos(x5)*(cos(x1)*cos(x3)-sin(x1)*cos(x2)*sin(x3)); 	
+	j7w[2 + 5 * 3] = sin(x5)*(cos(x2)*sin(x4)+sin(x2)*cos(x3)*cos(x4))+sin(x2)*sin(x3)*cos(x5); 	
+
+	j7w[0 + 6 * 3] = cos(x6)*(sin(x4)*(sin(x1)*sin(x3)-cos(x1)*cos(x2)*cos(x3))-cos(x1)*sin(x2)*cos(x4))+sin(x6)*(cos(x5)*(cos(x4)*(sin(x1)*sin(x3)-cos(x1)*cos(x2)*cos(x3))+cos(x1)*sin(x2)*sin(x4))+sin(x5)*(sin(x1)*cos(x3)+cos(x1)*cos(x2)*sin(x3))); 	
+	j7w[1 + 6 * 3] = -cos(x6)*(sin(x4)*(cos(x1)*sin(x3)+sin(x1)*cos(x2)*cos(x3))+sin(x1)*sin(x2)*cos(x4))-sin(x6)*(cos(x5)*(cos(x4)*(cos(x1)*sin(x3)+sin(x1)*cos(x2)*cos(x3))-sin(x1)*sin(x2)*sin(x4))+sin(x5)*(cos(x1)*cos(x3)-sin(x1)*cos(x2)*sin(x3))); 	
+	j7w[2 + 6 * 3] = cos(x6)*(cos(x2)*cos(x4)-sin(x2)*cos(x3)*sin(x4))-sin(x6)*(cos(x5)*(cos(x2)*sin(x4)+sin(x2)*cos(x3)*cos(x4))-sin(x2)*sin(x3)*sin(x5)); 
+
+    for ( i = 0; i < 3; i ++)
+    {
+        for (j = 0; j< 7; j++)
+        {
+            J[j * 6 + i] = jv7[ j * 3 + i];
+        }
+    }
+
+    for ( i = 0; i < 3; i ++)
+    {
+        for (j = 0; j< 7; j++)
+        {
+            J[j * 6 + i + 3] = j7w[ j * 3 + i];
+        }
+    }
+
 }

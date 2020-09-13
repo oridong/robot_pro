@@ -8,5 +8,6 @@ extern void moveLPoseUnchanged(double angleInit[7], const double locationFinal[3
 extern void moveLPoseChanged(bodypart &arm, double poseFinal[6], double speedRate);
 extern void moveCPoseUnchanged(double angleInit[7], const double pointMiddle[3], const double pointFinal[3], double speedRate, bodypart arm);
 extern void moveCPoseChanged(double angleInit[7], const double pointMiddle[3], const double pointFinal[3], double speedRate, bodypart arm);
+extern int forceUpdate(bodypart &arm, int type, double dt);
 
 #endif // !MOVEX_H

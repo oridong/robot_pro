@@ -104,6 +104,7 @@ typedef struct
 
     int act_position; /* actual position in cnt */
     double exp_position;   /* expect position in cnt */
+    double ref_position;
     uint32_t ain;       // 模拟输入2 
     double this_send;
 
@@ -124,6 +125,7 @@ typedef struct
     Offset_ft offset;
 
     double ft[6];
+    double offsetft[6];
     bool dataReady;
     double countsPerForce;
     double countsPerTorque;
@@ -131,6 +133,17 @@ typedef struct
     uint32_t status;
     uint32_t sampCount;
 }ft_sensor;
+
+typedef struct 
+{
+    int Switch;
+    double totalP[6];
+    double totalV[6];
+    double totalTrans[16];
+    double paramM[6];
+    double paramK[6];
+    double paramC[6];
+}forceCtrl;
 
 /* 身体部件 结构体 */
 typedef struct 
@@ -157,6 +170,8 @@ typedef struct
 
     splan s_equat;
     double rEquivalent[4];
+
+    forceCtrl fctrl;
 
     // flags 
     int state;

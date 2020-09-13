@@ -78,6 +78,18 @@ double b_norm(const double x[3])
     return scale * sqrt(y);
 }
 
+double norm(double * vec, int num)
+{
+    int i;
+    double sum;
+    for (i = 0; i < num; i++)
+    {
+        sum += vec[i] * vec[i];
+    }
+    sum = sqrt(sum);
+    return sum;
+}
+
 void b_sign(double *x)
 {
     if (*x < 0.0)
@@ -488,4 +500,45 @@ void matrixTrans(double * in, int x , int y, double * out)
             out[i*y+j] = in[j*x +i];
         }
     }
+}
+
+void schmdit(double in[9], double out[9])
+{
+    int i,j;
+    double beta1[3];
+    double beta2[3];
+    double beta3[3];
+
+    // 正交化
+    for (i = 0; i<3; i++)
+    {
+        beta1[i] = in[i];
+    }
+    double d1 = dot(*(double(*)[3]) &in[3] ,beta1)/dot(beta1, beta1);
+    for (i = 0; i<3; i++)
+    {
+        beta2[i] = in[i + 3] - d1* beta1[i];
+    }
+
+    d1 = dot(*(double(*)[3]) &in[6] ,beta1)/dot(beta1, beta1);
+    double d2 = dot(*(double(*)[3]) &in[6] , beta2)/dot(beta2, beta2);
+    for (i = 0; i<3; i++)
+    {
+        beta3[i] = in[i + 6] - d1 * beta1[i] - d2 * beta2[i];
+    }
+
+    // 单位化
+    for ( i = 0; i<3; i++)
+    {
+        out[i] = beta1[i] / b_norm(beta1);
+    }
+    for ( i = 0; i<3; i++)
+    {
+        out[i + 3] = beta2[i] / b_norm(beta2);
+    }
+    for ( i = 0; i<3; i++)
+    {
+        out[i + 6] = beta3[i] / b_norm(beta3);
+    }
+
 }

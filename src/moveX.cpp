@@ -25,8 +25,11 @@ void moveJ(bodypart &arm, double jointFinal[7], double speedRate)
     int i;
     double angleInit[7];
     double T[7];
-    int motornum = sizeof(arm.motor)/sizeof(Motor);
-    memcpy(angleInit, arm.jointPos, sizeof(arm.jointPos));
+    int motornum = arm.motornum;
+    for (i = 0; i< motornum; i++)
+    {
+        angleInit[i] = arm.motor[i].ref_position/ arm.jointGear[i];
+    }
     double sum = 0.0;
             
     /* workMode = 0：此时在关节空间对7个关节进行规划 */
@@ -218,7 +221,7 @@ void moveLPoseChanged(bodypart &arm, double poseFinal[6], double speedRate)
     double Tfinal[16];
     double poseInit[16];
 
-    pose2T(poseFinal, Tfinal);
+    TfromPose(poseFinal, Tfinal);
 
     double rotInit[9],rotFinal[9],rotInit_t[9];
     /* 初始化 */
@@ -590,7 +593,122 @@ void moveCPoseChanged(double angleInit[7], const double pointMiddle[3], const do
 
 }
 
-void forceControl(bodypart & arm)
+int forceUpdate(bodypart &arm, int type, double dt)
 {
-     
+    double xdd[6];
+    int i;
+
+    double angleRef[7];
+    double angleNow[7];
+    double angleExp[8];
+    int angleExpsize[2];
+    double deltatrans[6];
+    double ft[6];
+
+    double dtrans[16];
+    double rot_[9];
+    double Tref[16];
+    double beta;
+    double temp[16];
+    double pose_[6];
+
+
+    double normOfPose = 0.0;
+
+    for ( i = 0; i < arm.motornum; i++)
+    {
+        angleRef[i] = arm.motor[i].ref_position / arm.jointGear[i];
+        angleNow[i] = arm.jointPos[i];
+    }
+
+    // 进入力控退出模式，则切断力传感器开关
+    for (i = 0; i< 6; i++)
+    {
+        if (arm.fctrl.Switch == 1)
+        {
+            ft[i] = arm.endft.ft[i];
+        }
+        else
+        {
+            ft[i] = 0.0;
+        }
+    }
+
+    for (i = 0; i < 6 ; i++)
+    {
+        xdd[i] = (ft[i] - arm.fctrl.paramC[i] * arm.fctrl.totalV[i] - arm.fctrl.paramK[i] * arm.fctrl.totalP[i])/arm.fctrl.paramM[i];
+        arm.fctrl.totalP[i] += (0.5 * dt * dt * xdd[i] + arm.fctrl.totalV[i] * dt);
+        arm.fctrl.totalV[i] += xdd[i] * dt;
+        deltatrans[i] = arm.fctrl.totalV[i] * dt;
+    }
+
+    switch (type)
+    {
+        case 0:
+            TfromPose(arm.fctrl.totalP, dtrans);
+            normOfPose = norm(arm.fctrl.totalP, 6);
+            if (normOfPose< 1e-3)
+            {
+                return 0;
+            }
+            dtrans[12] *= 1000;
+            dtrans[13] *= 1000;
+            dtrans[14] *= 1000;
+            ForwardKinematics(angleRef, Tref);
+
+            matrixMultiply(Tref, 4, 4, dtrans, 4, 4, temp);
+            beta = FindBeta(angleRef);
+
+            InverseKinematics(angleNow, temp, beta, 0, beta, angleExp, angleExpsize);
+        break;
+
+        case 1:
+
+            double rot[9] = {1.0, deltatrans[5], -deltatrans[4],  
+                            -deltatrans[5], 1.0, deltatrans[3], 
+                            deltatrans[4], -deltatrans[3], 1.0};   
+            schmdit(rot, rot_);
+            TfromRotPos(rot_, *(double (*)[3])&deltatrans[0], dtrans);
+            matrixMultiply(arm.fctrl.totalTrans, 4, 4, dtrans, 4, 4, temp);
+            memcpy(arm.fctrl.totalTrans, temp, sizeof(temp));
+
+            PosefromT(arm.fctrl.totalTrans, pose_);   
+
+            normOfPose = norm(pose_, 6);
+            if (normOfPose< 1e-4)
+            {
+                printf("in\n");
+                return 0;
+            }
+
+            memcpy(dtrans, arm.fctrl.totalTrans, sizeof(dtrans));
+            dtrans[12] *= 1000;
+            dtrans[13] *= 1000;
+            dtrans[14] *= 1000;
+            ForwardKinematics(angleRef, Tref);
+
+            matrixMultiply(Tref, 4, 4, dtrans, 4, 4, temp);
+            beta = FindBeta(angleRef);
+
+            InverseKinematics(angleNow, temp, beta, 0.0, beta, angleExp, angleExpsize);
+
+        break;
+
+        case 2:
+
+        break;
+    }
+    
+
+    // // 重新使用dtrans 进行单位转换
+
+    if (angleExpsize[1] == 8){
+        for ( i = 0; i < arm.motornum; i++)
+        {
+            arm.motor[i].exp_position = angleExp[i] * arm.jointGear[i];
+        }
+    }
+
+    return 1;
+    
 }

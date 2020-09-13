@@ -174,10 +174,11 @@ void robotSendFeedback(bodypart la, bodypart ra, bodypart head, bodypart track)
     la.motor[1].this_send/la.jointGear[1],la.motor[2].this_send/la.jointGear[2],
     la.motor[3].this_send/la.jointGear[3],la.motor[4].this_send/la.jointGear[4],
     la.motor[5].this_send/la.jointGear[5],la.motor[6].this_send/la.jointGear[6], 
+    ra.motor[0].this_send/ra.jointGear[0],
     ra.motor[1].this_send/ra.jointGear[1],ra.motor[2].this_send/ra.jointGear[2],
     ra.motor[3].this_send/ra.jointGear[3],ra.motor[4].this_send/ra.jointGear[4],
     ra.motor[5].this_send/ra.jointGear[5],ra.motor[6].this_send/ra.jointGear[6], 
-    ra.motor[6].this_send/ra.jointGear[6],
+    
     head.motor[0].this_send/head.jointGear[0], 
     head.motor[1].this_send/head.jointGear[1], 
     head.motor[2].this_send/head.jointGear[2], 
@@ -189,14 +190,15 @@ void robotSendFeedback(bodypart la, bodypart ra, bodypart head, bodypart track)
     // la.motor[1].this_send/la.jointGear[1],la.motor[2].this_send/la.jointGear[2],
     // la.motor[3].this_send/la.jointGear[3],la.motor[4].this_send/la.jointGear[4],
     // la.motor[5].this_send/la.jointGear[5],la.motor[6].this_send/la.jointGear[6], 
+    // ra.motor[0].this_send/ra.jointGear[0],
     // ra.motor[1].this_send/ra.jointGear[1],ra.motor[2].this_send/ra.jointGear[2],
     // ra.motor[3].this_send/ra.jointGear[3],ra.motor[4].this_send/ra.jointGear[4],
     // ra.motor[5].this_send/ra.jointGear[5],ra.motor[6].this_send/ra.jointGear[6], 
-    // ra.motor[6].this_send/ra.jointGear[6],
+    
     // head.motor[0].this_send/head.jointGear[0], 
     // head.motor[1].this_send/head.jointGear[1], 
     // head.motor[2].this_send/head.jointGear[2], 
-    // ra.endft.ft[2]);
+    // la.endft.ft[2]);
     
     //发送数据
     int len = sendto(sockfd, send_buf, strlen(send_buf), 0, (struct sockaddr *)&nvidia_addr, sizeof(nvidia_addr));

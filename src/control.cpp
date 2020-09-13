@@ -96,6 +96,10 @@ double alpha[itp_window] = {0.0f};
 double alpha_sum = 0.0f;
 RT_TASK my_task;
 
+double defaultM[6] = {100, 100, 180, 5, 5, 5};
+double defaultEP[6] = {1.1, 1.1, 1.1, 1.1, 1.1, 1.1};				/*阻尼比*/
+double defaultK[6] = {150, 150, 200, 3, 3, 3};			/*刚度A6D_wn.^2.*A6D_m*/
+
 /************************************************
  * 重要状态位
  * *********************************************/
@@ -244,7 +248,23 @@ int leftarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * motor
     arm.movefollowCnt = 0;
     arm.motornum = 7;
 
-    for (i = 0; i < 7; i++)     // ！！！！！！！！！ 只初始化一个电机作为实验 // sizeof(arm.motor)/sizeof(Motor)
+    for (j = 0; j< 7; j ++)     // 临时
+    {
+        arm.motor[j].first_time = 0;
+        arm.motor[j].exp_position = 0;
+        arm.motor[j].act_position = 0;
+        arm.motor[j].mode = armMotorMode;
+        arm.motor[j].this_send = 0;
+        arm.motor[j].itp_period_times = armMotoritpTimes[j];
+        arm.motor[j].plan_cnt = 0;
+        arm.motor[j].plan_run_time = 0.0f;
+
+        arm.jointGear[j] = leftarmGear[j];
+
+    }
+    arm.fctrl.Switch = 0;
+
+    for (i = 0; i < 0; i++)     // ！！！！！！！！！ 只初始化一个电机作为实验 // sizeof(arm.motor)/sizeof(Motor)
     {
         arm.motor[i].alias = motor_pos->alias;
         arm.motor[i].buspos = motor_pos->buspos;
@@ -267,20 +287,7 @@ int leftarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * motor
         domain[dm_index].domain_reg.push_back(temp7);
         domain[dm_index].domain_reg.push_back(temp8);
 
-        // for (j = 0; j< 7; j ++)     // 临时
-        // {
-            arm.motor[i].first_time = 0;
-            arm.motor[i].exp_position = 0;
-            arm.motor[i].act_position = 0;
-            arm.motor[i].mode = armMotorMode;
-            arm.motor[i].this_send = 0;
-            arm.motor[i].itp_period_times = armMotoritpTimes[i];
-            arm.motor[i].plan_cnt = 0;
-            arm.motor[i].plan_run_time = 0.0f;
-
-            arm.jointGear[i] = leftarmGear[i];
-
-        // }
+       
 
         arm.motor[i].sc_dig_out = ecrt_master_slave_config(m, motor_pos[i].alias, motor_pos[i].buspos, ELMO_GOLD);
         if (!arm.motor[i].sc_dig_out)
@@ -358,7 +365,8 @@ int rightarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * moto
 
         arm.jointGear[j] = rightarmGear[j];
     }
-    for (i = 0; i < 0; i++)     // ！！！！！！！！！ 只初始化一个电机作为实验 // sizeof(arm.motor)/sizeof(Motor)
+    arm.fctrl.Switch = 0;
+    for (i = 0; i < 1; i++)     // ！！！！！！！！！ 只初始化一个电机作为实验 // sizeof(arm.motor)/sizeof(Motor)
     {
         arm.motor[i].alias = motor_pos->alias;
         arm.motor[i].buspos = motor_pos->buspos;
@@ -381,16 +389,16 @@ int rightarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * moto
         domain[dm_index].domain_reg.push_back(temp7);
         domain[dm_index].domain_reg.push_back(temp8);
 
-        arm.motor[j].first_time = 0;
-        arm.motor[j].exp_position = 0;
-        arm.motor[j].act_position = 0;
-        arm.motor[j].mode = armMotorMode;
-        arm.motor[j].this_send = 0;
-        arm.motor[j].itp_period_times = armMotoritpTimes[j];
-        arm.motor[j].plan_cnt = 0;
-        arm.motor[j].plan_run_time = 0.0f;
+        arm.motor[i].first_time = 0;
+        arm.motor[i].exp_position = 0;
+        arm.motor[i].act_position = 0;
+        arm.motor[i].mode = armMotorMode;
+        arm.motor[i].this_send = 0;
+        arm.motor[i].itp_period_times = armMotoritpTimes[i];
+        arm.motor[i].plan_cnt = 0;
+        arm.motor[i].plan_run_time = 0.0f;
 
-        arm.jointGear[j] = leftarmGear[j];
+        arm.jointGear[i] = rightarmGear[i];
 
         arm.motor[i].sc_dig_out = ecrt_master_slave_config(m, motor_pos[i].alias, motor_pos[i].buspos, ELMO_GOLD);
         if (!arm.motor[i].sc_dig_out)
@@ -626,10 +634,7 @@ int FT_sensor_init(bodypart &arm, ec_master_t * m, int dm_index, EC_position pos
     // 1、写控制字 0000 到0x7010:0x01 Sdo 功能：读出counts数据，配置滤波器为0, 校准数据为700-30
     uint32_t data1 = 0x001;
     uint32_t abort_code;
-    if (ecrt_master_sdo_download(m, pos.buspos, 0x7010, 0x01, (uint8_t *)&data1, sizeof(data1), &abort_code)) // 写SDO，0x2F41:0 16-19位配置为4 即可开启模拟二通道输入
-    {
-        fprintf(stderr, "Failed to set Control Word\n");
-    }
+    
 
     uint8_t result[4];
     size_t target_size = 4;
@@ -655,6 +660,16 @@ int FT_sensor_init(bodypart &arm, ec_master_t * m, int dm_index, EC_position pos
     data = (uint32_t *)result;
     arm.endft.countsPerTorque = double(*data);      // 将读到的数据写入手臂结构体
     // printf("%f,%d\n",(double(*data)), result_size);
+
+    if (ecrt_master_sdo_download(m, pos.buspos, 0x7010, 0x01, (uint8_t *)&data1, sizeof(data1), &abort_code)) // 写SDO，0x2F41:0 16-19位配置为4 即可开启模拟二通道输入
+    {
+        fprintf(stderr, "Failed to set Control Word\n");
+        return 0;
+    }
+
+    memset(arm.endft.offsetft, 0, sizeof(arm.endft.offsetft));      // 将偏置设为零
+    
+    return 1;
 
     // 4、从0x6000:0x03 读Sdo 试读力传感器数据Fz
     // if (ecrt_master_sdo_upload(m, pos.buspos, 0x6000, 0x03, result, target_size, &result_size, &abort_code)) // 读SDO， 0x2F41:0 为用户应用配置字
@@ -845,10 +860,10 @@ void readArmData(bodypart & arm)
     for (i = 0; i < arm.motornum; i++)
     {
         // if (i == 0){
-            arm.motor[i].act_position = EC_READ_S32(domain[arm.dm_index].domain_pd + arm.motor[i].offset.act_position);
+            // arm.motor[i].act_position = EC_READ_S32(domain[arm.dm_index].domain_pd + arm.motor[i].offset.act_position);
         // }
         // else{
-        //     arm.motor[i].act_position = arm.motor[i].this_send;
+            arm.motor[i].act_position = arm.motor[i].this_send;
         // }
 
         arm.motor[i].ain = EC_READ_U32(domain[arm.dm_index].domain_pd + arm.motor[i].offset.ain);
@@ -870,12 +885,12 @@ void readArmData(bodypart & arm)
 void readForceData(bodypart &arm)
 {
     int dm_index = arm.dm_index;
-    arm.endft.ft[0] = (double)EC_READ_S32(domain[dm_index].domain_pd + arm.endft.offset.Fx)/arm.endft.countsPerForce;
-    arm.endft.ft[1] = (double)EC_READ_S32(domain[dm_index].domain_pd + arm.endft.offset.Fy)/arm.endft.countsPerForce;
-    arm.endft.ft[2] = (double)EC_READ_S32(domain[dm_index].domain_pd + arm.endft.offset.Fz)/arm.endft.countsPerForce;
-    arm.endft.ft[3] = (double)EC_READ_S32(domain[dm_index].domain_pd + arm.endft.offset.Tx)/arm.endft.countsPerTorque;
-    arm.endft.ft[4] = (double)EC_READ_S32(domain[dm_index].domain_pd + arm.endft.offset.Ty)/arm.endft.countsPerTorque;
-    arm.endft.ft[5] = (double)EC_READ_S32(domain[dm_index].domain_pd + arm.endft.offset.Tz)/arm.endft.countsPerTorque;
+    arm.endft.ft[0] = (double)EC_READ_S32(domain[dm_index].domain_pd + arm.endft.offset.Fx)/arm.endft.countsPerForce - arm.endft.offsetft[0];
+    arm.endft.ft[1] = (double)EC_READ_S32(domain[dm_index].domain_pd + arm.endft.offset.Fy)/arm.endft.countsPerForce - arm.endft.offsetft[1];
+    arm.endft.ft[2] = (double)EC_READ_S32(domain[dm_index].domain_pd + arm.endft.offset.Fz)/arm.endft.countsPerForce - arm.endft.offsetft[2];
+    arm.endft.ft[3] = (double)EC_READ_S32(domain[dm_index].domain_pd + arm.endft.offset.Tx)/arm.endft.countsPerTorque- arm.endft.offsetft[3];
+    arm.endft.ft[4] = (double)EC_READ_S32(domain[dm_index].domain_pd + arm.endft.offset.Ty)/arm.endft.countsPerTorque- arm.endft.offsetft[4];
+    arm.endft.ft[5] = (double)EC_READ_S32(domain[dm_index].domain_pd + arm.endft.offset.Tz)/arm.endft.countsPerTorque- arm.endft.offsetft[5];
 
     arm.endft.status = EC_READ_U32(domain[dm_index].domain_pd + arm.endft.offset.status1);
     arm.endft.sampCount = EC_READ_U32(domain[dm_index].domain_pd + arm.endft.offset.status2);
@@ -890,13 +905,19 @@ void readForceData(bodypart &arm)
     {
         arm.endft.dataReady = 1;
     }
-    else
+    
+    // printf("%f,%f,%f,%f,%f,%f, %d\n",arm.endft.ft[0], arm.endft.ft[1], arm.endft.ft[2], arm.endft.ft[3], arm.endft.ft[4], arm.endft.ft[5], arm.endft.status);
+}
+
+void clearForceSensor(ft_sensor &endft)
+{
+    // uint32_t data1 = 0x001;
+    // EC_WRITE_S32(domain[arm.dm_index].domain_pd + arm.endft.offset.ctrl1, data1);        // 直接修改力传感器偏置后数据不正常
+    int i;
+    for ( i = 0; i<6; i++)
     {
-        arm.endft.dataReady = 0;
+        endft.offsetft[i] += endft.ft[i];
     }
-
-    // printf("%f,%f,%f,%f,%f,%f\n",arm.endft.ft[0], arm.endft.ft[1], arm.endft.ft[2], arm.endft.ft[3], arm.endft.ft[4], arm.endft.ft[5]);
-
 }
 
 /*
@@ -952,7 +973,7 @@ void ctrlArmMotor(bodypart &arm)
                 {
                     for (i = 0; i < motornum; i++)
                     {
-                        arm.motor[i].exp_position = angle_planned[i] * arm.jointGear[i];
+                        arm.motor[i].ref_position = angle_planned[i] * arm.jointGear[i];
                         // if (j ==0) printf("%f,%f,%f\n",angle_planned[0], arm.jointGear[0], arm.jointPos[0]);
                         angle_delta[i] = fabs(angle_planned[i] - arm.jointPos[i]);
                     }
@@ -994,7 +1015,7 @@ void ctrlArmMotor(bodypart &arm)
             {
                 for ( i = 0; i< motornum; i++)
                 {
-                    arm.motor[i].exp_position = S_position(arm.motor[i].sp.time, arm.motor[i].sp.para) * arm.jointGear[i];
+                    arm.motor[i].ref_position = S_position(arm.motor[i].sp.time, arm.motor[i].sp.para) * arm.jointGear[i];
                     arm.motor[i].sp.time += arm.motor[i].sp.deltaTime;
                 }
                 arm.s_planTimes --;
@@ -1020,6 +1041,35 @@ void ctrlArmMotor(bodypart &arm)
             break;
     }
 
+    // 判断力控打开
+    if (arm.fctrl.Switch == 1)      // 力控打开
+    {
+        forceUpdate(arm, 0, 0.001);  // deltaT in 秒
+    }
+    else if (arm.fctrl.Switch == -1)        // 力控关闭准备
+    {
+        if (forceUpdate(arm, 0, 0.001) == 0)
+        {
+            arm.fctrl.Switch = 0;       // 运动结束，正式关闭
+            printf("closed forceCtrl\n");
+        }
+    }
+    else if (arm.fctrl.Switch == -2)    // 力控打开准备, 如果力传感器数据已经传回, 则直接通过，否则等待启动
+    {
+        if (arm.endft.dataReady)
+        {
+            arm.fctrl.Switch = 1;
+            
+        }
+    }
+    else if (arm.fctrl.Switch == 0)     // 力控关闭，参考位置直接进行插值
+    {
+        for (i = 0 ; i< arm.motornum; i++)
+        {
+            arm.motor[i].exp_position = arm.motor[i].ref_position;
+        }
+    }
+    
     // 电机遍历取值，精插补
     for (i = 0; i < arm.motornum; i++)
     {
@@ -1037,19 +1087,13 @@ void ctrlArmMotor(bodypart &arm)
         {
             arm.motor[i].plan_cnt = 0;
         }
-    }
 
-    // if (arm.fotceCtrl.switch == 1)
-    // {
-
-    // }
-    /********************** 填写指令，等待发送 **********************/
-    for (i = 0 ; i< arm.motornum; i++)
-    {
+        /********************** 填写指令，等待发送 **********************/
         // if (i == -1){
         //     // printf("%d\n",int(arm.motor[i].this_send));
         //     if (arm.state != ON_MOVE_FOLLOW)
-            EC_WRITE_S32(domain[arm.dm_index].domain_pd + arm.motor[i].offset.target_position, int(arm.motor[i].this_send));
+            // EC_WRITE_S32(domain[arm.dm_index].domain_pd + arm.motor[i].offset.target_position, int(arm.motor[i].this_send));
+
         // }
     }
     
@@ -1159,6 +1203,9 @@ void realtime_proc(void *arg)
     double poseFinal[6] = {0.0};
     double Tfinal[16] = {0.0};
     int angleFianl_beta_size[2] = {0};
+
+    // force
+    double param;
     
 
     while (run)
@@ -1173,7 +1220,7 @@ void realtime_proc(void *arg)
         ecrt_domain_process(domain[0].domain);
         ecrt_domain_process(domain[1].domain);
 
-        readForceData(rightarm);
+        readForceData(leftarm);
 
         switch (run_state)
         {
@@ -1182,9 +1229,9 @@ void realtime_proc(void *arg)
 
             for (i = 0; i < 7; i++) // 临时为1 sizeof(leftarm.motor)/sizeof(Motor)
             {
-                EC_WRITE_U8(domain[leftarm.dm_index].domain_pd + leftarm.motor[i].offset.mode_operation, leftarm.motor[i].mode);
+                EC_WRITE_U8(domain[rightarm.dm_index].domain_pd + rightarm.motor[i].offset.mode_operation, rightarm.motor[i].mode);
             }
-            ready = changeBodyMotorState(leftarm, -1, SWITCHED_ON);      // 临时为0
+            ready = changeBodyMotorState(rightarm, 0, SWITCHED_ON);      // 临时为0
 
             // printf("time: %ld, ready:%d\n", (long)previous, ready);
             if (ready)
@@ -1196,7 +1243,7 @@ void realtime_proc(void *arg)
 
         case ENABLE:
 
-            ready = changeBodyMotorState(leftarm, -1, OPERATION_ENABLE);      // 临时为0
+            ready = changeBodyMotorState(rightarm, 0, OPERATION_ENABLE);      // 临时为0
             if (ready)
             {
                 printf("Elmo Enable Finished.\n");
@@ -1244,8 +1291,8 @@ void realtime_proc(void *arg)
                     {
                         poseFinal[i] = atof(cmd.param_list[i + 1]);
                     }
-                    pose2T(poseFinal, Tfinal);
-                    printf_d(Tfinal,16);
+                    TfromPose(poseFinal, Tfinal);
+                    // printf_d(Tfinal,16);
                     /* 如果给定的是位姿 先求出位姿对应的关节角  静态大范围求解模式 β扫描间隔 0.01-3420us 0.1-520us*/
                     InverseKinematics(leftarm.jointPos, Tfinal, -M_PI, 0.1, M_PI, jointFinalBeta, angleFianl_beta_size);
                     
@@ -1306,7 +1353,7 @@ void realtime_proc(void *arg)
                     {
                         poseFinal[i] = atof(cmd.param_list[i + 1]);
                     }
-                    pose2T(poseFinal, Tfinal);
+                    TfromPose(poseFinal, Tfinal);
                 }
                 if (left_right == LEFT)
                 {
@@ -1390,7 +1437,7 @@ void realtime_proc(void *arg)
                             poseFinal[i] = atof(cmd.param_list[i - 3]);
                         }
                     }
-                    pose2T(poseFinal, Tfinal);
+                    TfromPose(poseFinal, Tfinal);
 
                 }
                 else
@@ -1403,6 +1450,140 @@ void realtime_proc(void *arg)
                 printf("%f,%f,%f\n", head.motor[0].exp_position, head.motor[1].exp_position, head.motor[2].exp_position);
                 break;
 
+            case FORCE_ENABLE:
+                left_right = atoi(cmd.param_list[0]);
+
+                if (left_right == LEFT)
+                {
+                    if (leftarm.fctrl.Switch != 0)
+                    {
+                        break;
+                    }
+                    if (cmd.param_cnt == 1)     // 默认参数
+                    {
+                        memcpy(leftarm.fctrl.paramM, defaultM, sizeof(defaultM));
+                        memcpy(leftarm.fctrl.paramK, defaultK, sizeof(defaultK));
+                        for (i = 0; i<6; i++)
+                        {
+                            leftarm.fctrl.paramC[i] = 2.0 * defaultEP[i] * sqrt(leftarm.fctrl.paramK[i] * leftarm.fctrl.paramM[i]);
+                        }
+                    }
+                    else if (cmd.param_cnt == 19)     // 给定参数
+                    {
+                        for (i = 0;i < 6; i++)
+                        {
+                            param = atof(cmd.param_list[i + 1]);        // 接收 M
+                            if (param != 0.0)
+                            {
+                                leftarm.fctrl.paramM[i] = param;
+                            }
+                        }
+                        for (i = 0;i < 6; i++)
+                        {
+                            param = atof(cmd.param_list[i + 1 + 6]);        // 接收 K
+                            if (param != 0.0)
+                            {
+                                leftarm.fctrl.paramK[i] = param;
+                            }
+                        }
+                        for (i = 0;i < 6; i++)
+                        {
+                            param = atof(cmd.param_list[i + 1 + 12]);       // 接收 epsilon
+                            if (param != 0.0)
+                            {
+                                leftarm.fctrl.paramC[i] = 2 * param * sqrt( leftarm.fctrl.paramK[i] * leftarm.fctrl.paramM[i]);
+                            }
+                        }
+                    }
+                    leftarm.fctrl.Switch = -2;      // 第一周期需要清除力传感器，力控准备
+                    memset(leftarm.fctrl.totalP, 0, sizeof(leftarm.fctrl.totalP));
+                    memset(leftarm.fctrl.totalV, 0, sizeof(leftarm.fctrl.totalV));
+                    memset(leftarm.fctrl.totalTrans, 0, sizeof(leftarm.fctrl.totalTrans));
+                    leftarm.fctrl.totalTrans[0] = 1.0;
+                    leftarm.fctrl.totalTrans[5] = 1.0;
+                    leftarm.fctrl.totalTrans[10] = 1.0;
+                    leftarm.fctrl.totalTrans[15] = 1.0;
+
+                    clearForceSensor(leftarm.endft);     // 清零力传感器
+                }
+                else if (left_right == RIGHT)
+                {
+                    if (rightarm.fctrl.Switch != 0)     // 在停止状态下，开启
+                    {
+                        break;
+                    }
+                    if (cmd.param_cnt == 1)     // 默认参数
+                    {
+                        memcpy(rightarm.fctrl.paramM, defaultM, sizeof(defaultM));
+                        memcpy(rightarm.fctrl.paramK, defaultK, sizeof(defaultK));
+                        for (i = 0; i<6; i++)
+                        {
+                            rightarm.fctrl.paramC[i] = 2.0 * defaultEP[i] * sqrt(rightarm.fctrl.paramK[i] * rightarm.fctrl.paramM[i]);
+                        }
+                        
+                    }
+                    else if (cmd.param_cnt == 19)     // 给定关节角
+                    {
+                        for (i = 0;i < 6; i++)
+                        {
+                            param = atof(cmd.param_list[i + 1]);        // 接收 M
+                            if (param != 0.0)
+                            {
+                                rightarm.fctrl.paramM[i] = param;
+                            }
+                        }
+                        for (i = 0;i < 6; i++)
+                        {
+                            param = atof(cmd.param_list[i + 1 + 6]);        // 接收 K
+                            if (param != 0.0)
+                            {
+                                rightarm.fctrl.paramK[i] = param;
+                            }
+                        }
+                        for (i = 0;i < 6; i++)
+                        {
+                            param = atof(cmd.param_list[i + 1 + 12]);       // 接收 epsilon
+                            if (param != 0.0)
+                            {
+                                rightarm.fctrl.paramC[i] = 2 * param * sqrt( rightarm.fctrl.paramK[i] * rightarm.fctrl.paramM[i]);
+                            }
+                        }
+                    }
+                    rightarm.fctrl.Switch = -2;      // 第一周期需要清除力传感器，力控准备
+                    memset(rightarm.fctrl.totalP, 0, sizeof(rightarm.fctrl.totalP));
+                    memset(rightarm.fctrl.totalV, 0, sizeof(rightarm.fctrl.totalV));
+                    memset(rightarm.fctrl.totalTrans, 0, sizeof(rightarm.fctrl.totalTrans));
+                    rightarm.fctrl.totalTrans[0] = 1.0;
+                    rightarm.fctrl.totalTrans[5] = 1.0;
+                    rightarm.fctrl.totalTrans[10] = 1.0;
+                    rightarm.fctrl.totalTrans[15] = 1.0;
+                    clearForceSensor(rightarm.endft);     // 清零力传感器
+                    
+                }
+                
+                break;
+
+            case FORCE_DISABLE:
+                 left_right = atoi(cmd.param_list[0]);
+                
+                if (left_right == LEFT)
+                {
+                    if (leftarm.fctrl.Switch == 1)
+                    {
+                        printf("waiting for exit\n");
+                        leftarm.fctrl.Switch = -1;
+                    }
+                }
+                else if (left_right == RIGHT)
+                {
+                    if (rightarm.fctrl.Switch == 1)
+                    {
+                        printf("waiting for exit\n");
+                        rightarm.fctrl.Switch = -1;
+                    }
+                }
+                
+                break;
             case NO_RECV:
                 check_follow(leftarm, 0.5);
                 check_follow(rightarm, 0.5);
@@ -1415,7 +1596,7 @@ void realtime_proc(void *arg)
 
             /********************** 遍历各身体部位进行控制 **********************/
             ctrlArmMotor(leftarm);       // 控制左臂电机运动
-            // ctrlArmMotor(rightarm);       // 控制左臂电机运动
+            ctrlArmMotor(rightarm);       // 控制右臂电机运动
             // ctrlheadMotor(head);         // 控制头部电机运动
             
             robotSendFeedback(leftarm, rightarm, head, track);
@@ -1505,7 +1686,7 @@ int main(int argc, char *argv[])
     if (!domain[1].domain) return -1;
     // ==================== 配置EtherCAT 从站 ======================== //
     printf("Creating slave configurations...\n");
-    if (!leftarmInit(leftarm, master0, 0, left_slave_pos)) return -1;       // 配置左臂从站， 包括7个关节电机和1个力传感器, master0, domain0
+    if (!leftarmInit(leftarm, master1, 1, left_slave_pos)) return -1;       // 配置左臂从站， 包括7个关节电机和1个力传感器, master0, domain0
     printf("leftarm init successed...\n");
 
     if (!rightarmInit(rightarm, master0, 0, right_slave_pos)) return -1;       // 配置右臂从站， 包括7个关节电机和1个力传感器, master0, domain0
@@ -1515,7 +1696,7 @@ int main(int argc, char *argv[])
     printf("head init successed...\n");
     
     EC_position ft_pos = {0,0};
-    if (!FT_sensor_init(rightarm, master1, 1, ft_pos)) return -1;
+    if (!FT_sensor_init(leftarm, master1, 1, ft_pos)) return -1;
     printf("rightarm ftsensor init successed...\n");
 
 

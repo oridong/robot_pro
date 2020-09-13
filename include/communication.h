@@ -11,10 +11,10 @@
 # define CTRL_IP "10.8.0.2" 
 # define CTRL_PORT 8001
 
-# define Nvidia_IP "192.168.50.13" 
+# define Nvidia_IP "192.168.50.15" 
 # define Nvidia_PORT 8002
 
-# define ROBOT_IP "127.0.0.1" //"10.1.76.247"//
+# define ROBOT_IP "192.168.50.17" //"10.1.76.247"//
 # define ROBOT_PORT 8000
 
 # define RECV_BUF_SIZE 512  // 接收缓存区大小
@@ -30,6 +30,8 @@
 # define MOVEJ 5
 # define MOVEL 6
 # define MOVE_FOLLOW 7
+# define FORCE_ENABLE 8
+# define FORCE_DISABLE 9
 
 # define NO_RECV -2
 # define ERROR_MATCH -1
@@ -43,7 +45,9 @@ const char cmd_table[][CMD_SIZE] = {
     "DisMotor",
     "moveJ",
     "moveL",
-    "moveFollow"
+    "moveFollow",
+    "forceEn",
+    "forceDis"
 };
 
 typedef struct{
