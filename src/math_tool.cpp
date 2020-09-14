@@ -82,6 +82,7 @@ double norm(double * vec, int num)
 {
     int i;
     double sum;
+    sum = 0.0;
     for (i = 0; i < num; i++)
     {
         sum += vec[i] * vec[i];
@@ -541,4 +542,123 @@ void schmdit(double in[9], double out[9])
         out[i + 6] = beta3[i] / b_norm(beta3);
     }
 
+}
+
+int matrixInverse(double* pSourceR, int iNum, double* pDestR)
+{
+	int i, j, k, i0, j0;
+	double dMax, dTem;
+
+	int* iRow = (int*)malloc(sizeof(int) * iNum);
+	int* iCol = (int*)malloc(sizeof(int) * iNum);
+	double* dTem1 = (double*)malloc(sizeof(double) * iNum);
+	double* dTem2 = (double*)malloc(sizeof(double) * iNum);
+
+    matrixTrans(pSourceR, iNum, iNum, pDestR);
+
+	// 复制数组, 在缓冲区之间拷贝字符
+	// memcpy(pDestR, pSourceR, (iNum * iNum) * sizeof(double));
+
+	for (k = 0; k < iNum; k++)
+	{
+		dMax = 0.0;
+
+		// 首先，全选主元；从第k行k列开始的右下角子阵中选取绝对值最大的元素
+		for (i = k; i < iNum; i++)
+		{
+			for (j = k; j < iNum; j++)
+			{
+				if (fabs(pDestR[i*iNum+j]) > fabs(dMax))
+				{
+					dMax = pDestR[i*iNum+j];
+					i0 = i;
+					j0 = j;
+				}
+			}
+		}
+
+		// 若绝对值最大的元素为零，则为奇异矩阵，求逆失败
+		if (fabs(dMax) < 0.000000000001)
+		{
+			free(iRow);  free(iCol);  free(dTem1);  free(dTem2);
+			return 0;
+		}
+
+		// 将绝对值最大的元素所在行与k行互换
+		if (i0 != k)
+		{
+			for (j = 0; j < iNum; j++)
+			{
+				dTem = pDestR[i0*iNum+j];
+				pDestR[i0*iNum+j] = pDestR[k*iNum+j];
+				pDestR[k*iNum+j] = dTem;
+			}
+		}
+
+		// 将绝对值最大的元素所在列与k列互换，即可交换到主元素位置上
+		if (j0 != k)
+		{
+			for (i = 0; i < iNum; i++)
+			{
+				dTem = pDestR[i*iNum+j0];
+				pDestR[i*iNum+j0] = pDestR[i*iNum+k];
+				pDestR[i*iNum+k] = dTem;
+			}
+		}
+
+		// 记录该元素所在的行号和列号
+		iRow[k] = i0;
+		iCol[k] = j0;
+
+		// 然后求解
+		for (j = 0; j < iNum; j++)
+		{
+			if (j == k)
+			{
+				dTem1[j] = 1 / dMax;
+				dTem2[j] = 1.0;
+			}
+			else
+			{
+				dTem1[j] =  - pDestR[k*iNum+j] / dMax;
+				dTem2[j] = pDestR[j*iNum+k];
+			}
+			pDestR[k*iNum+j] = 0.0;
+			pDestR[j*iNum+k] = 0.0;
+		}
+		for (i = 0; i < iNum; i++)
+			for (j = 0; j < iNum; j++)
+				pDestR[i*iNum+j] += dTem2[i] * dTem1[j];
+	}
+
+	// 最后，根据在全选主元过程中所记录的行、列交换的信息进行恢复
+	for (k = iNum-1; k >= 0; k--)
+	{
+		i0 = iRow[k];
+		j0 = iCol[k];
+		if (i0 != k)
+		{
+			for (i = 0; i < iNum; i++)
+			{
+				dTem = pDestR[i*iNum+i0];
+				pDestR[i*iNum+i0] = pDestR[i*iNum+k];
+				pDestR[i*iNum+k] = dTem;
+			}
+		}
+		if (j0 != k)
+		{
+			for (j = 0; j < iNum; j++)
+			{
+				dTem = pDestR[j0*iNum+j];
+				pDestR[j0*iNum+j] = pDestR[k*iNum+j];
+				pDestR[k*iNum+j] = dTem;
+			}
+		}
+	}
+
+    matrixTrans(pDestR, iNum, iNum, pSourceR);
+    memcpy( pDestR, pSourceR, sizeof(pDestR));
+
+	free(iRow);  free(iCol);  free(dTem1);  free(dTem2);
+	return 1;
 }

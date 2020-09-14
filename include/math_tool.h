@@ -16,6 +16,8 @@ extern void matrixTrans(double * in, int x , int y, double * out);
 extern void slerp(float starting[4], float ending[4], float result[4], float t );
 extern void quatU2Axis(const double qin[4], double qout[4]);
 extern void schmdit(double in[9], double out[9]);
+extern int matrixInverse(double* pSourceR, int iNum, double* pDestR);
+
 
 extern void printf_d(double * data, int size);
 #endif 

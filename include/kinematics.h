@@ -19,6 +19,7 @@ extern void rotfromT(double T[16], double rot[9]);
 extern void TfromRotPos(const double rot[9], const double pos[3], double trans[16]);
 extern void TfromPose(double pose[6], double T[16]);    // ZYX 顺规
 extern void PosefromT(double T[16], double pose[6]);    // ZYX 顺规
-extern void Jacobian(double jointangle[6], double J[42]);
+extern void Jacobian(double jointangle[7], double J[42]);
+extern int InvJacobian(double jointangle[7], double invJ[42]);
 
 #endif

@@ -36,6 +36,7 @@
 # define ON_MOVEL 1
 # define ON_MOVEJ 2
 # define ON_MOVE_FOLLOW 3
+# define ON_CARMOVE 4
 
 
 /* 电机Pdo地址偏移  */
@@ -65,6 +66,17 @@ typedef struct
     unsigned int status1;
     unsigned int status2;
 } Offset_ft;
+
+typedef struct
+{
+    unsigned int target_velocity;
+    unsigned int ctrl_word;
+    unsigned int mode_operation;
+    unsigned int act_position;
+    unsigned int DI;
+    unsigned int act_velocity;
+    unsigned int status_word;
+} Offset_vel;
 
 /* EtherCAT domain结构体  */
 typedef struct 
@@ -99,17 +111,19 @@ typedef struct
     uint16_t status;  /* DS402 status register, without manufacturer bits */
     ec_slave_config_t *sc_dig_out;
 
-    uint8_t mode;
+    uint8_t mode;       // 运行模式， 暂时只能固定为位置模式
     uint8_t first_time;
 
-    int act_position; /* actual position in cnt */
-    double exp_position;   /* expect position in cnt */
+    int act_position; /* actual position */
+    double exp_position;   /* expect position */
     double ref_position;
     uint32_t ain;       // 模拟输入2 
     double this_send;
 
+    // s曲线插补
     splan sp;
 
+    // 精插补
     std::vector<double> plan;
     double plan_param[4];
     uint16_t plan_cnt;
@@ -117,6 +131,31 @@ typedef struct
     uint16_t itp_period_times;
 
 }Motor;
+
+typedef struct 
+{
+    uint16_t alias;
+    uint16_t buspos;
+    Offset_vel offset;
+    uint16_t status;  /* DS402 status register, without manufacturer bits */
+    ec_slave_config_t *sc_dig_out;
+
+    uint8_t mode;
+    uint8_t first_time;
+
+    int act_velocity; /* actual velocity in cnt */
+    double exp_velocity;   /* expect velocity in cnt */
+    double ref_velocity;
+    double this_send;
+
+    splan sp;
+    std::vector<double> plan;
+    double plan_param[4];
+    uint16_t plan_cnt;
+    double plan_run_time;
+    uint16_t itp_period_times;
+
+}velMotor;
 
 /* 力传感器 结构体 */
 typedef struct 
@@ -140,6 +179,7 @@ typedef struct
     double totalP[6];
     double totalV[6];
     double totalTrans[16];
+    double jointP[7];
     double paramM[6];
     double paramK[6];
     double paramC[6];
@@ -153,10 +193,11 @@ typedef struct
     uint8_t motornum;
     double jointPos[7];
     double jointGear[7];
+    
+    // ethercat domain 序号
+    int dm_index;
 
-    ft_sensor endft;
-    int dm_index;       // ethercat domain 序号
-
+    // s_plan 相关
     uint16_t plan_cnt;
     uint16_t itp_period_times;
 
@@ -165,19 +206,35 @@ typedef struct
     double rotInit[9];
     double locationInit[3];
     double locationDelta[3];
-
     splan s_beta;
-
     splan s_equat;
     double rEquivalent[4];
 
+    // 力控
+    ft_sensor endft;
     forceCtrl fctrl;
 
-    // flags 
+    // 重要状态位 
     int state;
     uint16_t movefollowCnt;
 
 }bodypart;
+
+typedef struct 
+{
+    velMotor motor[4];
+    uint8_t motornum;
+    int dm_index;       // ethercat domain 序号
+    double jointGear[4];
+    double jointVel[4];
+
+    double chassisVel_cmd[2];
+
+    uint16_t watchdog;
+    uint16_t itp_period_times;
+
+    int state;
+}trackpart;
 
 
 int FT_sensor_init(bodypart &arm, ec_master_t * m, int dm_index, EC_position pos);

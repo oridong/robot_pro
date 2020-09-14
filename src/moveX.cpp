@@ -593,7 +593,7 @@ void moveCPoseChanged(double angleInit[7], const double pointMiddle[3], const do
 
 }
 
-int forceUpdate(bodypart &arm, int type, double dt)
+int forceUpdate(bodypart &arm, int type, double dt, int dir_enable[6])
 {
     double xdd[6];
     int i;
@@ -612,6 +612,10 @@ int forceUpdate(bodypart &arm, int type, double dt)
     double temp[16];
     double pose_[6];
 
+    // case 2
+    double invJ[42];
+    double jointp[7];
+    double jointv[7];
 
     double normOfPose = 0.0;
 
@@ -636,21 +640,33 @@ int forceUpdate(bodypart &arm, int type, double dt)
 
     for (i = 0; i < 6 ; i++)
     {
-        xdd[i] = (ft[i] - arm.fctrl.paramC[i] * arm.fctrl.totalV[i] - arm.fctrl.paramK[i] * arm.fctrl.totalP[i])/arm.fctrl.paramM[i];
+        if (dir_enable[i] == 1)
+        {
+            xdd[i] = (ft[i] - arm.fctrl.paramC[i] * arm.fctrl.totalV[i] - arm.fctrl.paramK[i] * arm.fctrl.totalP[i])/arm.fctrl.paramM[i];
+        }
+        else
+        {
+            xdd[i] = 0.0;
+        }
+        
         arm.fctrl.totalP[i] += (0.5 * dt * dt * xdd[i] + arm.fctrl.totalV[i] * dt);
         arm.fctrl.totalV[i] += xdd[i] * dt;
         deltatrans[i] = arm.fctrl.totalV[i] * dt;
     }
 
+    double rot[9] = {1.0, deltatrans[5], -deltatrans[4],  
+                    -deltatrans[5], 1.0, deltatrans[3], 
+                    deltatrans[4], -deltatrans[3], 1.0};  
+
+    double force_vlim[6] = {50.0, 50.0, 80.0, 7.0, 7.0, 7.0}; 
+    
+
     switch (type)
     {
-        case 0:
+        case 0:     // 最稳方式
+            
             TfromPose(arm.fctrl.totalP, dtrans);
-            normOfPose = norm(arm.fctrl.totalP, 6);
-            if (normOfPose< 1e-3)
-            {
-                return 0;
-            }
+            
             dtrans[12] *= 1000;
             dtrans[13] *= 1000;
             dtrans[14] *= 1000;
@@ -664,23 +680,12 @@ int forceUpdate(bodypart &arm, int type, double dt)
 
         case 1:
 
-            double rot[9] = {1.0, deltatrans[5], -deltatrans[4],  
-                            -deltatrans[5], 1.0, deltatrans[3], 
-                            deltatrans[4], -deltatrans[3], 1.0};   
             schmdit(rot, rot_);
             TfromRotPos(rot_, *(double (*)[3])&deltatrans[0], dtrans);
             matrixMultiply(arm.fctrl.totalTrans, 4, 4, dtrans, 4, 4, temp);
             memcpy(arm.fctrl.totalTrans, temp, sizeof(temp));
 
-            PosefromT(arm.fctrl.totalTrans, pose_);   
-
-            normOfPose = norm(pose_, 6);
-            if (normOfPose< 1e-4)
-            {
-                printf("in\n");
-                return 0;
-            }
-
+            // 重新使用dtrans 进行单位转换
             memcpy(dtrans, arm.fctrl.totalTrans, sizeof(dtrans));
             dtrans[12] *= 1000;
             dtrans[13] *= 1000;
@@ -695,18 +700,59 @@ int forceUpdate(bodypart &arm, int type, double dt)
         break;
 
         case 2:
+            
+            if (InvJacobian(angleNow, invJ))
+                angleExpsize[1] = 8;
+            else
+                angleExpsize[1] = 0;
+            
+            for (i = 0; i< 6; i++)
+            {
+                if (i < 3)
+                {
+                    deltatrans[i] = arm.fctrl.totalV[i] * 1000;
+                }
+                else
+                {
+                    deltatrans[i] = arm.fctrl.totalV[i];
+                }
+
+                // limit velocity 
+                if (deltatrans[i] > force_vlim[i])
+                {
+                    deltatrans[i] = force_vlim[i];
+                    printf("velocity limited\n");
+                }
+                else if (deltatrans[i] < -force_vlim[i])
+                {
+                    deltatrans[i] = -force_vlim[i];
+                    printf("velocity limited\n");
+                }
+            }
+            matrixMultiply(invJ, 7, 6, deltatrans, 6, 1, jointv);
+            printf_d(jointv, 7);
+            for ( i = 0; i< 7; i++)
+            {
+                arm.fctrl.jointP[i] += jointv[i] * dt;
+                angleExp[i] = angleRef[i] + arm.fctrl.jointP[i];
+            }
 
         break;
     }
     
 
-    // // 重新使用dtrans 进行单位转换
 
     if (angleExpsize[1] == 8){
         for ( i = 0; i < arm.motornum; i++)
         {
             arm.motor[i].exp_position = angleExp[i] * arm.jointGear[i];
         }
+    }
+
+    normOfPose = norm(arm.fctrl.totalP, 6);
+    if (normOfPose< 1e-3)
+    {
+        return 0;
     }
 
     return 1;
