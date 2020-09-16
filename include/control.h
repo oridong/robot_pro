@@ -32,14 +32,19 @@
 #define ctl_period 1000000 /* unit：ns， 1ms 控制周期 */
 #define itp_window 3
 
+
+// 机械臂状态机， IDLE状态有至少一个电机使能，如果没有电机使能将会跳转到DISABLE状态
+// 开始运动之后机械臂将会处于ON_MOVEJ，ON_MOVEJ，ON_MOVE_FOLLOW状态之一
+// 履带会处于ON_CARMOVE状态
+# define DISABLE -1
 # define IDLE 0
 # define ON_MOVEL 1
 # define ON_MOVEJ 2
 # define ON_MOVE_FOLLOW 3
 # define ON_CARMOVE 4
+# define ON_MOVETEST 5
 
-
-/* 电机Pdo地址偏移  */
+/* 位置模式电机EtherCAT，Pdo地址偏移  */
 typedef struct
 {
     unsigned int target_position;
@@ -52,7 +57,7 @@ typedef struct
     unsigned int ain;
 } Offset;
 
-/* 力传感器Pdo地址偏移  */
+/* 力传感器EtherCAT，Pdo地址偏移  */
 typedef struct
 {
     unsigned int ctrl1;
@@ -67,6 +72,7 @@ typedef struct
     unsigned int status2;
 } Offset_ft;
 
+/* 速度模式电机EtherCAT，Pdo地址偏移  */
 typedef struct
 {
     unsigned int target_velocity;
@@ -78,7 +84,8 @@ typedef struct
     unsigned int status_word;
 } Offset_vel;
 
-/* EtherCAT domain结构体  */
+
+/* EtherCAT domain结构体， 方便组装domain*/
 typedef struct 
 {
     ec_domain_t *domain;
@@ -94,7 +101,7 @@ typedef struct EC_position
     uint16_t buspos;
 } EC_position;
 
-/* 插值 结构体 */
+/* s曲线规划插值 结构体 */
 typedef struct 
 {
     double para[17];
@@ -102,28 +109,36 @@ typedef struct
     double deltaTime;
 }splan;
 
-/* Elmo电机结构体 */
+/* Elmo位置模式电机结构体 */
 typedef struct 
 {
-    uint16_t alias;
-    uint16_t buspos;
-    Offset offset;
-    uint16_t status;  /* DS402 status register, without manufacturer bits */
-    ec_slave_config_t *sc_dig_out;
+    uint16_t alias;     // ethercat总线别名
+    uint16_t buspos;    // ethercat总线地址
+    Offset offset;      // ethercat Pdo偏移
+    uint16_t status;    // ethercat状态字
+    ec_slave_config_t *sc_dig_out;      // ethercat从站配置
 
-    uint8_t mode;       // 运行模式， 暂时只能固定为位置模式
+    // 重要状态量
+    uint8_t mode;       // 运行模式，暂时只能固定为位置模式
+    uint8_t servo_state;        // 运行模式，暂时只能固定为位置模式
+    uint8_t servo_cmd;
     uint8_t first_time;
 
+    // 电机变量的所有值均为cnt单位
     int act_position; /* actual position */
+    int offset_pos;
+    int start_pos;
     double exp_position;   /* expect position */
     double ref_position;
-    uint32_t ain;       // 模拟输入2 
     double this_send;
+
+    // 模拟量为4096格数单位
+    uint32_t ain;       // 模拟输入2 
 
     // s曲线插补
     splan sp;
 
-    // 精插补
+    // 电机位置精插补
     std::vector<double> plan;
     double plan_param[4];
     uint16_t plan_cnt;
@@ -173,6 +188,7 @@ typedef struct
     uint32_t sampCount;
 }ft_sensor;
 
+// 力控制参数
 typedef struct 
 {
     int Switch;
@@ -238,6 +254,7 @@ typedef struct
 
 
 int FT_sensor_init(bodypart &arm, ec_master_t * m, int dm_index, EC_position pos);
+void readForceData(bodypart &arm);
 
 
 # endif
