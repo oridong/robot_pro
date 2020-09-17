@@ -25,10 +25,10 @@ void moveJ(bodypart &arm, double jointFinal[7], double speedRate)
     int i;
     double angleInit[7];
     double T[7];
-    int motornum = arm.motornum;
-    for (i = 0; i< motornum; i++)
+    int motornum = arm.motornum; 
+    for (i = 0; i < motornum; i++)
     {
-        angleInit[i] = arm.motor[i].ref_position/ arm.jointGear[i];
+        angleInit[i] = arm.jointPos[i];
     }
     double sum = 0.0;
             
@@ -36,16 +36,14 @@ void moveJ(bodypart &arm, double jointFinal[7], double speedRate)
     /* 每一个关节规划包含16个参数：[Ta, Tv, Td, Tj1, Tj2, q_0, q_1, v_0, v_1, vlim, a_max, a_min, a_lima, a_limd, j_max, j_min, signOfQ0Q1] */
     double limit[4] = {M_PI/4, M_PI/4, M_PI/4, speedRate};
 
-    printf("in movej\n");
-
     // 检查是否在目标位置，如果在直接返回，但是由于电机抖动可能难以进入，需要提高s曲线规划兼容性
-    for (i =0; i< motornum; i++)
+    for (i = 0; i < motornum; i++)
     {
         sum += fabs(arm.jointPos[i] - jointFinal[i]);
     }
     if (sum == 0.0)
     {
-        printf("%f,re send\n", sum);
+        printf("same goal\n");
         arm.state = IDLE;
         return;
     }

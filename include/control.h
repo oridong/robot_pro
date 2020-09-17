@@ -126,7 +126,6 @@ typedef struct
 
     // 电机变量的所有值均为cnt单位
     int act_position; /* actual position */
-    int offset_pos;
     int start_pos;
     double exp_position;   /* expect position */
     double ref_position;
@@ -209,6 +208,8 @@ typedef struct
     uint8_t motornum;
     double jointPos[7];
     double jointGear[7];
+    double startJointAngle[7];
+    double offsetAngle[7];
     
     // ethercat domain 序号
     int dm_index;
@@ -255,6 +256,7 @@ typedef struct
 
 int FT_sensor_init(bodypart &arm, ec_master_t * m, int dm_index, EC_position pos);
 void readForceData(bodypart &arm);
+void check_follow(bodypart & arm, double timeout);
 
 
 # endif
