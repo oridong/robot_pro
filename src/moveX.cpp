@@ -741,7 +741,7 @@ int forceUpdate(bodypart &arm, int type, double dt, int dir_enable[6])
         break;
     }
     
-
+    // 保护！！！！！！！！！！！！！！！！
 
     if (angleExpsize[1] == 8){
         for ( i = 0; i < arm.motornum; i++)

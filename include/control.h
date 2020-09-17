@@ -231,6 +231,12 @@ typedef struct
     ft_sensor endft;
     forceCtrl fctrl;
 
+    // 测试
+    uint8_t motor_use[7];
+    double test_time;
+    double test_A;
+    double test_T;
+
     // 重要状态位 
     int state;
     uint16_t movefollowCnt;

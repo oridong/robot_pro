@@ -80,7 +80,8 @@
 
 #define MotorNum 1 // 使用的电机数量
 
-int leftarm_use_motor[8] = {0, 0, 0, 0, 0, 1, 1, 1};
+int leftarm_use_motor[8] = {1, 1, 1, 1, 0, 1, 1, 1};
+int rightarm_use_motor[8] = {1, 1, 1, 1, 0, 1, 1, 0};
 // EtherCAT 电机总线地址
 static EC_position left_slave_pos[] = {{0, 0}, {0, 1}, {0, 2}, {0, 3}, {0, 4}, {0, 5}, {0, 6}, {0, 7}}; 
 static EC_position right_slave_pos[] = {{0, 0}, {0, 1}, {0, 2}, {0, 3}, {0, 4}, {0, 5}, {0, 6}, {0, 7}};
@@ -88,7 +89,7 @@ static EC_position head_slave_pos[] = {{0, 0}, {0, 1}, {0, 2}};
 static EC_position track_slave_pos[] = {{0, 0}, {0, 1}, {0, 2}, {0, 2}, {0, 2}, {0, 2}, {0, 2}, {0, 0}, {0, 0}};
   
 static double leftarmGear[7] = {160.0 * 20480 * 2.0 / PI, 160.0 * 20480 * 2.0 / PI, 100.0 * 20480 * 2.0 / PI, 100.0 * 20480 * 2.0 / PI, 100.0 * 18000 * 2.0 / PI, 200 * 32768 * 2.0 / PI, 200 * 32768 * 2.0 / PI};
-static double rightarmGear[7] = {160.0 * 20480 * 2.0 / PI, 160.0 * 20480 * 2.0 / PI, 100.0 * 18000 * 2.0 / PI, 100.0 * 18000 * 2.0 / PI, 262144.0 / 2.0 / PI, 200 * 32768 * 4.0 / 2.0 / PI, 262144.0 / 2.0 / PI};
+static double rightarmGear[7] = {160.0 * 20480 * 2.0 / PI, 160.0 * 20480 * 2.0 / PI, 100.0 * 20480 * 2.0 / PI, 100.0 * 20480 * 2.0 / PI, 100.0 * 18000 * 2.0 / PI, 200 * 32768 * 2.0 / PI, 200 * 32768 * 2.0 / PI};
 static double headGear[3] = {100.0, 100.0, 100.0};
 static double trackGear[9] = {10.0/radius/2.0/PI*524288, 10.0/radius/2.0/PI*524288, 10.0/radius/2.0/PI*524288, 10.0/radius/2.0/PI*524288, 100.0, 100.0, 100.0, 100.0, 100.0};
 
@@ -123,7 +124,6 @@ double defaultM[6] = {100, 100, 180, 5, 5, 5};
 double defaultEP[6] = {1.1, 1.1, 1.1, 1.1, 1.1, 1.1};				/*阻尼比*/
 double defaultK[6] = {150, 150, 200, 3, 3, 3};			/*刚度A6D_wn.^2.*A6D_m*/
 
-double test_t = 0.0;
 
 /************************************************
  * 重要状态位
@@ -312,8 +312,11 @@ int leftarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * motor
         arm.offsetAngle[i] = leftoffsetAngle[i];
         arm.startJointAngle[i] = 0.0;
         arm.jointPos[i] = 0.0;
+        arm.test_T = 5.0;
+        arm.test_A = 90.0 * DEG2RAD;
+        arm.motor_use[i] = leftarm_use_motor[i];
 
-        if (leftarm_use_motor[i] == 1){
+        if (arm.motor_use[i] == 1){
             arm.motor[i].alias = motor_pos[addr].alias;
             arm.motor[i].buspos = motor_pos[addr].buspos;
             addr ++ ;
@@ -392,6 +395,8 @@ int leftarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * motor
                 return 0;
             }
             arm.startJointAngle[i] = 2 * PI - *((int32_t *)result) / 131072.0 * PI;  // ()/262144 * 2 * -PI
+            if (i < 4)
+                arm.startJointAngle[i] = 0.0;
             // if (arm.startJointAngle[i] < -PI)
             // {
             //     arm.startJointAngle[i] += 2 * PI;
@@ -406,7 +411,7 @@ int leftarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * motor
     } /* motor 循环*/
 
     // 初始化力传感器从站
-    if (leftarm_use_motor[7] == 1){
+    if (arm.motor_use[7] == 1){
         EC_position ft_pos = {motor_pos[addr].alias, motor_pos[addr].buspos};
         i = FT_sensor_init(arm, m, dm_index, ft_pos);
     }
@@ -421,51 +426,22 @@ int leftarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * motor
 **/
 int rightarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * motor_pos)
 {
+
     arm.dm_index = dm_index;        // 记录当前身体部分所使用的domain
+    int i = 0,j = 0;
     arm.movefollowCnt = 0;
     arm.motornum = 7;
-    int i = 0,j = 0;
-    for (j = 0; j< 7; j ++)     // 临时
-    {
-        arm.motor[j].first_time = 0;
-        arm.motor[j].exp_position = 0;
-        arm.motor[j].act_position = 0;
-        arm.motor[j].mode = armMotorMode;
-        arm.motor[j].this_send = 0;
-        arm.motor[j].itp_period_times = armMotoritpTimes[j];
-        arm.motor[j].plan_cnt = 0;
-        arm.motor[j].plan_run_time = 0.0f;
-
-        arm.jointGear[j] = rightarmGear[j];
-    }
+    arm.state = DISABLE;
     arm.fctrl.Switch = 0;
 
-    for (i = 0; i < 1; i++)     // ！！！！！！！！！ 只初始化一个电机作为实验 // sizeof(arm.motor)/sizeof(Motor)
+    uint8_t addr = 0;
+
+    for (i = 0; i < arm.motornum; i++)     // ！！！！！！！！！ 只初始化一个电机作为实验 
     {
-        arm.motor[i].alias = motor_pos[i].alias;
-        arm.motor[i].buspos = motor_pos[i].buspos;
-
-        ec_pdo_entry_reg_t temp1 = {motor_pos[i].alias, motor_pos[i].buspos, ELMO_GOLD, spe_pos[0].index, spe_pos[0].subindex, &arm.motor[i].offset.target_position, NULL};
-        ec_pdo_entry_reg_t temp2 = {motor_pos[i].alias, motor_pos[i].buspos, ELMO_GOLD, spe_pos[1].index, spe_pos[1].subindex, &arm.motor[i].offset.DO, NULL};
-        ec_pdo_entry_reg_t temp3 = {motor_pos[i].alias, motor_pos[i].buspos, ELMO_GOLD, spe_pos[2].index, spe_pos[2].subindex, &arm.motor[i].offset.ctrl_word, NULL};
-        ec_pdo_entry_reg_t temp4 = {motor_pos[i].alias, motor_pos[i].buspos, ELMO_GOLD, spe_pos[3].index, spe_pos[3].subindex, &arm.motor[i].offset.mode_operation, NULL};
-        ec_pdo_entry_reg_t temp5 = {motor_pos[i].alias, motor_pos[i].buspos, ELMO_GOLD, spe_pos[4].index, spe_pos[4].subindex, &arm.motor[i].offset.act_position, NULL};
-        ec_pdo_entry_reg_t temp6 = {motor_pos[i].alias, motor_pos[i].buspos, ELMO_GOLD, spe_pos[5].index, spe_pos[5].subindex, &arm.motor[i].offset.DI, NULL};
-        ec_pdo_entry_reg_t temp7 = {motor_pos[i].alias, motor_pos[i].buspos, ELMO_GOLD, spe_pos[6].index, spe_pos[6].subindex, &arm.motor[i].offset.status_word, NULL};
-        ec_pdo_entry_reg_t temp8 = {motor_pos[i].alias, motor_pos[i].buspos, ELMO_GOLD, spe_pos[7].index, spe_pos[7].subindex, &arm.motor[i].offset.ain, NULL};
-
-        domain[dm_index].domain_reg.push_back(temp1);
-        domain[dm_index].domain_reg.push_back(temp2);
-        domain[dm_index].domain_reg.push_back(temp3);
-        domain[dm_index].domain_reg.push_back(temp4);
-        domain[dm_index].domain_reg.push_back(temp5);
-        domain[dm_index].domain_reg.push_back(temp6);
-        domain[dm_index].domain_reg.push_back(temp7);
-        domain[dm_index].domain_reg.push_back(temp8);
-
         arm.motor[i].first_time = 0;
         arm.motor[i].exp_position = 0;
         arm.motor[i].act_position = 0;
+        arm.motor[i].start_pos = 0;
         arm.motor[i].mode = armMotorMode;
         arm.motor[i].this_send = 0;
         arm.motor[i].itp_period_times = armMotoritpTimes[i];
@@ -473,57 +449,115 @@ int rightarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * moto
         arm.motor[i].plan_run_time = 0.0f;
 
         arm.jointGear[i] = rightarmGear[i];
+        arm.offsetAngle[i] = rightoffsetAngle[i];
+        arm.startJointAngle[i] = 0.0;
+        arm.jointPos[i] = 0.0;
+        arm.test_T = 5.0;
+        arm.test_A = 90.0 * DEG2RAD;
+        arm.motor_use[i] = rightarm_use_motor[i];
 
-        arm.motor[i].sc_dig_out = ecrt_master_slave_config(m, motor_pos[i].alias, motor_pos[i].buspos, ELMO_GOLD);
-        if (!arm.motor[i].sc_dig_out)
-        {
-            fprintf(stderr, "Failed to get slave configuration, No.%d.\n", i);
-            return 0;
+        if (arm.motor_use[i] == 1){
+            arm.motor[i].alias = motor_pos[addr].alias;
+            arm.motor[i].buspos = motor_pos[addr].buspos;
+            addr ++ ;
+            ec_pdo_entry_reg_t temp1 = {arm.motor[i].alias, arm.motor[i].buspos, ELMO_GOLD, spe_pos[0].index, spe_pos[0].subindex, &arm.motor[i].offset.target_position, NULL};
+            ec_pdo_entry_reg_t temp2 = {arm.motor[i].alias, arm.motor[i].buspos, ELMO_GOLD, spe_pos[1].index, spe_pos[1].subindex, &arm.motor[i].offset.DO, NULL};
+            ec_pdo_entry_reg_t temp3 = {arm.motor[i].alias, arm.motor[i].buspos, ELMO_GOLD, spe_pos[2].index, spe_pos[2].subindex, &arm.motor[i].offset.ctrl_word, NULL};
+            ec_pdo_entry_reg_t temp4 = {arm.motor[i].alias, arm.motor[i].buspos, ELMO_GOLD, spe_pos[3].index, spe_pos[3].subindex, &arm.motor[i].offset.mode_operation, NULL};
+            ec_pdo_entry_reg_t temp5 = {arm.motor[i].alias, arm.motor[i].buspos, ELMO_GOLD, spe_pos[4].index, spe_pos[4].subindex, &arm.motor[i].offset.act_position, NULL};
+            ec_pdo_entry_reg_t temp6 = {arm.motor[i].alias, arm.motor[i].buspos, ELMO_GOLD, spe_pos[5].index, spe_pos[5].subindex, &arm.motor[i].offset.DI, NULL};
+            ec_pdo_entry_reg_t temp7 = {arm.motor[i].alias, arm.motor[i].buspos, ELMO_GOLD, spe_pos[6].index, spe_pos[6].subindex, &arm.motor[i].offset.status_word, NULL};
+            ec_pdo_entry_reg_t temp8 = {arm.motor[i].alias, arm.motor[i].buspos, ELMO_GOLD, spe_pos[7].index, spe_pos[7].subindex, &arm.motor[i].offset.ain, NULL};
+
+            domain[dm_index].domain_reg.push_back(temp1);
+            domain[dm_index].domain_reg.push_back(temp2);
+            domain[dm_index].domain_reg.push_back(temp3);
+            domain[dm_index].domain_reg.push_back(temp4);
+            domain[dm_index].domain_reg.push_back(temp5);
+            domain[dm_index].domain_reg.push_back(temp6);
+            domain[dm_index].domain_reg.push_back(temp7);
+            domain[dm_index].domain_reg.push_back(temp8);
+
+            arm.motor[i].sc_dig_out = ecrt_master_slave_config(m, arm.motor[i].alias, arm.motor[i].buspos, ELMO_GOLD);
+            if (!arm.motor[i].sc_dig_out)
+            {
+                fprintf(stderr, "Failed to get slave configuration, No.%d.\n", i);
+                return 0;
+            }
+            if (ecrt_slave_config_pdos(arm.motor[i].sc_dig_out, EC_END, ss_pos))
+            {
+                fprintf(stderr, "Failed to configure PDOs. No.%d.\n", i);
+                return 0;
+            }
+       
+            // ==================== 读写 SDO，配置0x2f41:0x00, 加入AD-input2到PDO中 ======================== //
+            // 1、读入0x2f41:0x00 当前的值
+            uint8_t result[4];
+            size_t target_size = 4;
+            size_t result_size;
+            uint32_t abort_code;
+
+            if (ecrt_master_sdo_upload(m, arm.motor[i].buspos, 0x2F41, 0, result, target_size, &result_size, &abort_code)) // 读SDO， 0x2F41:0 为用户应用配置字
+            {
+                fprintf(stderr, "Failed to get sdo data.\n");
+                return 0;
+            }
+
+            // 2、写入0x40000 到0x2f41:0x00 配置用户自定义 pdo 的功能
+            uint32_t data = 0x40000;
+            uint8_t *data_send = (uint8_t *)&data;
+            size_t data_size = sizeof(data);
+            if (ecrt_master_sdo_download(m, arm.motor[i].buspos, 0x2f41, 0, data_send, data_size, &abort_code)) // 写SDO，0x2F41:0 16-19位配置为4 即可开启模拟二通道输入
+            {
+                fprintf(stderr, "Failed to Set App to analog input 2.\n");
+                return 0;
+            }
+
+            // 3、重读检验是否成功写入
+            if (ecrt_master_sdo_upload(m, arm.motor[i].buspos, 0x2F41, 0, result, target_size, &result_size, &abort_code)) // 读SDO， 0x2F41:0 为用户应用配置字
+            {
+                fprintf(stderr, "Failed to get sdo data.\n");
+                return 0;
+            }
+
+            // =========================================================================== //
+
+            if (ecrt_master_sdo_upload(m, arm.motor[i].buspos, 0x6064, 0, result, target_size, &result_size, &abort_code)) // 读SDO， 0x2F41:0 为用户应用配置字
+            {
+                fprintf(stderr, "Failed to get sdo data.\n");
+                return 0;
+            }
+            arm.motor[i].start_pos = *((uint32_t *)result);
+
+            if (ecrt_master_sdo_upload(m, arm.motor[i].buspos, 0x3091, 2, result, target_size, &result_size, &abort_code)) // 读SDO， 0x2F41:0 为用户应用配置字
+            {
+                fprintf(stderr, "Failed to get sdo data.\n");
+                return 0;
+            }
+            arm.startJointAngle[i] = 2 * PI - *((int32_t *)result) / 131072.0 * PI;  // ()/262144 * 2 * -PI
+            if (i < 4)
+                arm.startJointAngle[i] = 0.0;
+            // if (arm.startJointAngle[i] < -PI)
+            // {
+            //     arm.startJointAngle[i] += 2 * PI;
+            // }
+            // else if (arm.startJointAngle[i] >= PI)
+            // {
+            //     arm.startJointAngle[i] -= 2 * PI;
+            // }
+            printf("sdo config OK.%d,abs pos:%f rad,rel pos:%d\n", i, arm.startJointAngle[i], arm.motor[i].start_pos);
         }
-        if (ecrt_slave_config_pdos(arm.motor[i].sc_dig_out, EC_END, ss_pos))
-        {
-            fprintf(stderr, "Failed to configure PDOs. No.%d.\n", i);
-            return 0;
-        }
-
-        // ==================== 读写 SDO，配置0x2f41:0x00, 加入AD-input2到PDO中 ======================== //
-        // 1、读入0x2f41:0x00 当前的值
-        uint8_t result[4];
-        size_t target_size = 4;
-        size_t result_size;
-        uint32_t abort_code;
-
-        if (ecrt_master_sdo_upload(master0, arm.motor[i].buspos, 0x2F41, 0, result, target_size, &result_size, &abort_code)) // 读SDO， 0x2F41:0 为用户应用配置字
-        {
-            fprintf(stderr, "Failed to get sdo data.\n");
-            return 0;
-        }
-
-        // 2、写入0x40000 到0x2f41:0x00 配置用户自定义 pdo 的功能
-        uint32_t data = 0x40000;
-        uint8_t *data_send = (uint8_t *)&data;
-        size_t data_size = sizeof(data);
-        if (!ecrt_master_sdo_download(master0, arm.motor[i].buspos, 0x2f41, 0, data_send, data_size, &abort_code)) // 写SDO，0x2F41:0 16-19位配置为4 即可开启模拟二通道输入
-        {
-            printf("Set App to analog input 2 successed!\n");
-        }
-
-        // 3、重读检验是否成功写入
-        if (ecrt_master_sdo_upload(master0, arm.motor[i].buspos, 0x2F41, 0, result, target_size, &result_size, &abort_code)) // 读SDO， 0x2F41:0 为用户应用配置字
-        {
-            fprintf(stderr, "Failed to get sdo data.\n");
-            return 0;
-        }
-
-        // =========================================================================== //
 
     } /* motor 循环*/
 
     // 初始化力传感器从站
-    // EC_position ft_pos = {motor_pos[7].alias, motor_pos[7].buspos};
-    // i = FT_sensor_init(arm, m, dm_index, ft_pos);
-    // return i;
-    return 1;
+    if (arm.motor_use[7] == 1){
+        EC_position ft_pos = {motor_pos[addr].alias, motor_pos[addr].buspos};
+        i = FT_sensor_init(arm, m, dm_index, ft_pos);
+    }
+    
+    return i;
+    // return 1;
 }
 
 /*
@@ -1169,11 +1203,14 @@ void stopArmMotor(bodypart & arm)
  */
 void readArmData(bodypart & arm)
 {
+    // printf("%f,", arm.motor[0].ref_position);
+
     int i;
     int motornum = arm.motornum;
     for (i = 0; i < motornum; i++)
     {
-        if (leftarm_use_motor[i] == 1){
+        if (arm.motor_use[i] == 1)
+        {
             arm.motor[i].act_position = EC_READ_S32(domain[arm.dm_index].domain_pd + arm.motor[i].offset.act_position) - arm.motor[i].start_pos + int((arm.startJointAngle[i] - arm.offsetAngle[i]) * arm.jointGear[i]);
         }
         else
@@ -1195,7 +1232,7 @@ void readArmData(bodypart & arm)
         // printf("%f\n", arm.jointPos[i]);
 
     }
-    // printf("%f\n", arm.jointPos[0]);
+    // printf("%f\n", arm.motor[0].ref_position);
     // printf("%f, %f, %f, %f, %f, %f, %f\n", arm.motor[0].act_position, arm.motor[1].act_position, arm.motor[2].act_position, arm.motor[3].act_position, arm.motor[4].act_position, arm.motor[5].act_position,  arm.motor[6].act_position);
 
     readForceData(arm);
@@ -1330,25 +1367,28 @@ void ctrlArmMotor(bodypart &arm)
         break;
 
         case IDLE:      // 空闲状态，可以进行任务
-            test_t = 0.0;
+            arm.test_time = 0.0;
             servoCmdAll = 0;
             servoStateAll = 0;
             for (i = 0; i< motornum; i++)
             {
-                if (arm.motor[i].servo_cmd == 1 && arm.motor[i].servo_state == 0)
+                if (arm.motor_use[i] == 1)
                 {
-                    arm.motor[i].ref_position = arm.motor[i].act_position;      // 清除遗留目标位置
-                    ret = changeOneMotorState(arm, i, OPERATION_ENABLE);
-                    if (ret)
-                        arm.motor[i].servo_state = 1;
+                    if (arm.motor[i].servo_cmd == 1 && arm.motor[i].servo_state == 0)
+                    {
+                        arm.motor[i].ref_position = arm.motor[i].act_position;      // 清除遗留目标位置
+                        ret = changeOneMotorState(arm, i, OPERATION_ENABLE);
+                        if (ret)
+                            arm.motor[i].servo_state = 1;
+                    }
+                    else if (arm.motor[i].servo_cmd == 0 && arm.motor[i].servo_state == 1)
+                    {
+                        ret = changeOneMotorState(arm, i, SWITCHED_ON);
+                        if (ret)
+                            arm.motor[i].servo_state = 0;
+                    }
                 }
-                else if (arm.motor[i].servo_cmd == 0 && arm.motor[i].servo_state == 1)
-                {
-                    ret = changeOneMotorState(arm, i, SWITCHED_ON);
-                    if (ret)
-                        arm.motor[i].servo_state = 0;
-                }
-
+                
                 servoCmdAll |= arm.motor[i].servo_cmd;      // 检测全零
                 servoStateAll |= arm.motor[i].servo_state;
             }
@@ -1452,7 +1492,7 @@ void ctrlArmMotor(bodypart &arm)
 
         case ON_MOVETEST:
             // test计时器累加
-            test_t += 0.001;
+            arm.test_time += 0.001;
         break;
 
         case ON_MOVE_FOLLOW:
@@ -1466,7 +1506,7 @@ void ctrlArmMotor(bodypart &arm)
 
     // 经过力控制的滤波器，对ref_position叠加一个力偏置得到期望电机position
     int dir_enalbe[6] = {1, 0, 0, 0, 0, 0};     // 力控制笛卡尔空间使能
-    uint8_t forceCtrlType = 0;      // 0 逆运动学直接模式， 1 逆运动学差分模式（卡顿）， 2 雅克比模式（不稳定）
+    uint8_t forceCtrlType = 2;      // 0 逆运动学直接模式， 1 逆运动学差分模式（卡顿）， 2 雅克比模式（不稳定）
 
     // 力控状态机，由于没有状态切换之间的等待， 所以只使用命令字表示状态
     if (arm.fctrl.Switch == 1)      // 力控打开
@@ -1490,12 +1530,14 @@ void ctrlArmMotor(bodypart &arm)
     }
     else if (arm.fctrl.Switch == 0)     // 力控关闭，参考位置直接进行插值
     {
-        for (i = 0 ; i< arm.motornum; i++)
+        for (i = 0 ; i < motornum; i++)
         {
-            arm.motor[i].exp_position = arm.motor[i].ref_position  + PI/2 * leftarmGear[i] * sin(test_t * 2 * PI /10);
+            arm.motor[i].exp_position = arm.motor[i].ref_position  + arm.test_A / 2.0 * leftarmGear[i] * (1 - cos(arm.test_time * PI / arm.test_T));
         }
     }
     
+    // printf("%f\n",arm.motor[0].exp_position);
+
     // printf("%.2f,%.2f,%.2f\n", double(arm.motor[1].act_position)/arm.jointGear[1]*RAD2DEG,  arm.motor[1].exp_position/arm.jointGear[1]*RAD2DEG, arm.motor[i].exp_position + arm.motor[1].start_pos - (arm.startJointAngle[1] - arm.offsetAngle[1]) * arm.jointGear[1]);
 
     // 电机遍历取值，精插补
@@ -1516,7 +1558,6 @@ void ctrlArmMotor(bodypart &arm)
             arm.motor[i].plan_cnt = 0;
         }
 
-
         // if ( i == 6)
         // {
         //     printf("%d,%f\n", arm.motor[i].act_position, arm.motor[i].this_send);
@@ -1525,7 +1566,9 @@ void ctrlArmMotor(bodypart &arm)
         // if (i == -1){
         //     // printf("%d\n",int(arm.motor[i].this_send));
         //     if (arm.state != ON_MOVE_FOLLOW)
+        if (arm.motor_use[i] == 1){
             EC_WRITE_S32(domain[arm.dm_index].domain_pd + arm.motor[i].offset.target_position, int(arm.motor[i].this_send) + arm.motor[i].start_pos - int((arm.startJointAngle[i] - arm.offsetAngle[i]) * arm.jointGear[i]));
+        }
         // }
 
     }
@@ -1833,7 +1876,10 @@ void realtime_proc(void *arg)
 
     // force
     double force_param;
-    
+
+    // test 
+    double test_A = 0;
+    double test_T = 0;
 
     while (run)
     {
@@ -1841,10 +1887,10 @@ void realtime_proc(void *arg)
         previous = rt_timer_read();     // 获取运行周期开始时间
 
         // 接收 EtherCAT 帧
-        // ecrt_master_receive(master0);
+        ecrt_master_receive(master0);
         ecrt_master_receive(master1);
 
-        // ecrt_domain_process(domain[0].domain);
+        ecrt_domain_process(domain[0].domain);
         ecrt_domain_process(domain[1].domain);
 
         // readForceData(leftarm);
@@ -1856,10 +1902,13 @@ void realtime_proc(void *arg)
             ready = 1;
             for (i = 0; i < 7; i++)
             {
-                // EC_WRITE_U8(domain[rightarm.dm_index].domain_pd + rightarm.motor[i].offset.mode_operation, rightarm.motor[i].mode);
+                EC_WRITE_U8(domain[rightarm.dm_index].domain_pd + rightarm.motor[i].offset.mode_operation, rightarm.motor[i].mode);
                 EC_WRITE_U8(domain[leftarm.dm_index].domain_pd + leftarm.motor[i].offset.mode_operation, leftarm.motor[i].mode);
-                if (leftarm_use_motor[i] == 1){
+                if (leftarm.motor_use[i] == 1){
                     ready &= changeOneMotorState(leftarm, i, SWITCHED_ON);
+                }
+                if (rightarm.motor_use[i] == 1){
+                    ready &= changeOneMotorState(rightarm, i, SWITCHED_ON);
                 }
             }
 
@@ -1878,7 +1927,6 @@ void realtime_proc(void *arg)
             if (ready)
             {
                 run_state = CONTROL;
-                ready = 0;
                 printf("Elmo Mode Configuration Finished.\n");
             }
             break;
@@ -1887,7 +1935,7 @@ void realtime_proc(void *arg)
             ready = 1;
             for (i = 0; i < 7; i++) // 临时为1 sizeof(leftarm.motor)/sizeof(Motor)
             {
-                if (leftarm_use_motor[i] == 1){
+                if (leftarm.motor_use[i] == 1){
                     ready &= changeOneMotorState(leftarm, i, OPERATION_ENABLE);
                     printf("%d\n",i);
                 }
@@ -1906,7 +1954,7 @@ void realtime_proc(void *arg)
 
             /********************** 读取当前位置 更新结构体 **********************/
             readArmData(leftarm);
-            // readArmData(rightarm);
+            readArmData(rightarm);
             // readChassisData(leg, track);
             
             /********************** 接受并解析指令 根据指令进行控制 **********************/
@@ -2426,13 +2474,28 @@ void realtime_proc(void *arg)
             case MOVE_TEST:
             {
                 left_right = atoi(cmd.param_list[0]);
+                if (cmd.param_cnt == 1)
+                {
+                    test_A = 90.0 * DEG2RAD;      // 单位 度
+                    test_T = 5.0;       // 单位 秒， 四分之一周期
+                }
+                else if (cmd.param_cnt == 3)
+                {
+                    test_A = atof(cmd.param_list[1]) * DEG2RAD;
+                    test_T = atof(cmd.param_list[2]);
+                }
+
                 if (left_right == LEFT)
                 {
+                    leftarm.test_A = test_A;
+                    leftarm.test_T = test_T;
                     leftarm.state = ON_MOVETEST;
                     leftarm.fctrl.Switch = 0;
                 }
                 else if (left_right == RIGHT)
                 {
+                    rightarm.test_A = test_A;
+                    rightarm.test_T = test_T;
                     rightarm.state = ON_MOVETEST;
                     rightarm.fctrl.Switch = 0;
                 }
@@ -2441,8 +2504,6 @@ void realtime_proc(void *arg)
 
             case NO_RECV:
             {
-               
-                
                 break;
             }
             
@@ -2453,7 +2514,7 @@ void realtime_proc(void *arg)
 
             /********************** 遍历各身体部位进行控制 **********************/
             ctrlArmMotor(leftarm);       // 控制左臂电机运动
-            // ctrlArmMotor(rightarm);       // 控制右臂电机运动
+            ctrlArmMotor(rightarm);       // 控制右臂电机运动
             // ctrlheadMotor(head);         // 控制头部电机运动
             // ctrlTrackMotor(track);          // 控制底盘履带电机运动
             
@@ -2476,9 +2537,9 @@ void realtime_proc(void *arg)
         }
 
         // send process data
-        // ecrt_domain_queue(domain[0].domain);
+        ecrt_domain_queue(domain[0].domain);
         ecrt_domain_queue(domain[1].domain);
-        // ecrt_master_send(master0);
+        ecrt_master_send(master0);
         ecrt_master_send(master1);
         now = rt_timer_read();
         period = (now - previous) / 1000; //us
@@ -2491,10 +2552,10 @@ void realtime_proc(void *arg)
     rt_task_wait_period(NULL);
     changeBodyMotorState(leftarm, -1, SWITCHED_ON);
 
-    // ecrt_domain_queue(domain[0].domain);
+    ecrt_domain_queue(domain[0].domain);
     ecrt_domain_queue(domain[1].domain);
     ecrt_master_send(master1);
-    // ecrt_master_send(master0);
+    ecrt_master_send(master0);
     main_exit = 1;
 }
 
@@ -2531,14 +2592,14 @@ int main(int argc, char *argv[])
 
     // ==================== 配置 EtherCAT 主站 ======================== //
     printf("Requesting master...\n");
-    // master0 = ecrt_request_master(0);
-    // if (!master0) return -1;
+    master0 = ecrt_request_master(0);
+    if (!master0) return -1;
 
     master1 = ecrt_request_master(1);
     if (!master1) return -1;
 
-    // domain[0].domain = ecrt_master_create_domain(master0);
-    // if (!domain[0].domain) return -1;
+    domain[0].domain = ecrt_master_create_domain(master0);
+    if (!domain[0].domain) return -1;
 
     domain[1].domain = ecrt_master_create_domain(master1);
     if (!domain[1].domain) return -1;
@@ -2547,8 +2608,8 @@ int main(int argc, char *argv[])
     if (!leftarmInit(leftarm, master1, 1, left_slave_pos)) return -1;       // 配置左臂从站， 包括7个关节电机和1个力传感器, master0, domain0
     printf("leftarm init successed...\n");
 
-    // if (!rightarmInit(rightarm, master0, 0, right_slave_pos)) return -1;       // 配置右臂从站， 包括7个关节电机和1个力传感器, master0, domain0
-    // printf("rightarm init successed...\n");
+    if (!rightarmInit(rightarm, master0, 0, right_slave_pos)) return -1;       // 配置右臂从站， 包括7个关节电机和1个力传感器, master0, domain0
+    printf("rightarm init successed...\n");
 
     // if (!headInit(head, master0, 0, right_slave_pos)) return -1;       // 配置头从站， 包括3个关节电机,master0, domain0
     // printf("head init successed...\n");
@@ -2561,11 +2622,11 @@ int main(int argc, char *argv[])
     // printf("rightarm ftsensor init successed...\n");
 
     // ==================== 配置 EtherCAT PDO，激活主站，得到domain指针 ======================== //
-    // if (ArrayDomainRegs(domain[0]))
-    // {
-    //     fprintf(stderr, "PDO domain0 entry registration failed!\n");
-    //     return -1;
-    // }
+    if (ArrayDomainRegs(domain[0]))
+    {
+        fprintf(stderr, "PDO domain0 entry registration failed!\n");
+        return -1;
+    }
     
     if (ArrayDomainRegs(domain[1]))
     {
@@ -2577,11 +2638,11 @@ int main(int argc, char *argv[])
     // if (ecrt_master_activate(master0)) return -1;
     if (ecrt_master_activate(master1)) return -1;
 
-    // if (!(domain[0].domain_pd = ecrt_domain_data(domain[0].domain)))
-    // {
-    //     fprintf(stderr, "Failed to get domain data pointer.\n");
-    //     return -1;
-    // }
+    if (!(domain[0].domain_pd = ecrt_domain_data(domain[0].domain)))
+    {
+        fprintf(stderr, "Failed to get domain data pointer.\n");
+        return -1;
+    }
 
     if (!(domain[1].domain_pd = ecrt_domain_data(domain[1].domain)))
     {
@@ -2620,7 +2681,7 @@ int main(int argc, char *argv[])
 
     printf("End of Program\n");
     ecrt_release_master(master1);
-    // ecrt_release_master(master0);
+    ecrt_release_master(master0);
 
     return 0;
 }

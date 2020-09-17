@@ -40,7 +40,7 @@
 
 const char cmd_table[][CMD_SIZE] = {
     "headL",
-    "carmove",
+    "carMove",
     "stopMove",
     "EnMotor",
     "DisMotor",
