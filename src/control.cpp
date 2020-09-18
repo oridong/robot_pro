@@ -81,7 +81,7 @@
 #define MotorNum 1 // 使用的电机数量
 
 int leftarm_use_motor[8] = {1, 1, 1, 1, 0, 1, 1, 1};
-int rightarm_use_motor[8] = {1, 1, 1, 1, 0, 1, 1, 0};
+int rightarm_use_motor[8] = {1, 1, 0, 1, 0, 0, 1, 0};
 // EtherCAT 电机总线地址
 static EC_position left_slave_pos[] = {{0, 0}, {0, 1}, {0, 2}, {0, 3}, {0, 4}, {0, 5}, {0, 6}, {0, 7}}; 
 static EC_position right_slave_pos[] = {{0, 0}, {0, 1}, {0, 2}, {0, 3}, {0, 4}, {0, 5}, {0, 6}, {0, 7}};
@@ -107,6 +107,16 @@ const int leftoffsetAngle[7] = {0, 0, 0, 0, 0, 0, 0};        // 单位弧度
 const int rightoffsetAngle[7] = {0, 0, 0, 0, 0, 0, 0};
 const int headoffsetAngle[3] = {0, 0, 0};
 const int legoffsetAngle[5] = {0, 0, 0, 0, 0};
+
+const int leftAbsEncDir[7] = {1, 1, 1, 1, 1, -1, -1};
+const int rightAbsEncDir[7] = {1, 1, 1, 1, 1, -1, -1};
+const int headAbsEncDir[7] = {-1, -1, -1, -1, -1, 1, 1};
+const int legAbsEncDir[7] = {-1, -1, -1, -1, -1, 1, 1};
+
+const double leftAbsEncCnt[7] = {524288.0, 524288.0, 524288.0, 524288.0, 524288.0, 262144.0, 262144.0};
+const double rightAbsEncCnt[7] = {524288.0, 524288.0, 524288.0, 524288.0, 524288.0, 262144.0, 262144.0};
+const double headAbsEncCnt[7] = {-1, -1, -1, -1, -1, 1, 1};
+const double legAbsEncCnt[7] = {-1, -1, -1, -1, -1, 1, 1};
 
 
 // 变量声明
@@ -394,9 +404,14 @@ int leftarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * motor
                 fprintf(stderr, "Failed to get sdo data.\n");
                 return 0;
             }
-            arm.startJointAngle[i] = 2 * PI - *((int32_t *)result) / 131072.0 * PI;  // ()/262144 * 2 * -PI
-            if (i < 4)
-                arm.startJointAngle[i] = 0.0;
+            if (leftAbsEncDir[i] == 1)
+            {
+                arm.startJointAngle[i] = *((int32_t *)result) / leftAbsEncCnt[i] * 2 * PI;  // ()/262144 * 2 * -PI
+            }
+            else if (leftAbsEncDir[i] == -1)
+            {
+                arm.startJointAngle[i] = 2 * PI - *((int32_t *)result) / leftAbsEncCnt[i] * 2 * PI;  // ()/262144 * 2 * -PI
+            }
             // if (arm.startJointAngle[i] < -PI)
             // {
             //     arm.startJointAngle[i] += 2 * PI;
@@ -534,9 +549,16 @@ int rightarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * moto
                 fprintf(stderr, "Failed to get sdo data.\n");
                 return 0;
             }
-            arm.startJointAngle[i] = 2 * PI - *((int32_t *)result) / 131072.0 * PI;  // ()/262144 * 2 * -PI
-            if (i < 4)
-                arm.startJointAngle[i] = 0.0;
+            if (rightAbsEncDir[i] == 1)
+            {
+                arm.startJointAngle[i] = *((int32_t *)result) / rightAbsEncCnt[i] * 2 * PI;  // ()/262144 * 2 * -PI
+            }
+            else if (rightAbsEncDir[i] == -1)
+            {
+                arm.startJointAngle[i] = 2 * PI - *((int32_t *)result) / rightAbsEncCnt[i] * 2 * PI;  // ()/262144 * 2 * -PI
+            }
+            
+
             // if (arm.startJointAngle[i] < -PI)
             // {
             //     arm.startJointAngle[i] += 2 * PI;
@@ -1192,6 +1214,7 @@ void stopArmMotor(bodypart & arm)
     for (i = 0; i < motornum; i++)
     {
         arm.motor[i].exp_position = arm.motor[i].act_position;
+        arm.motor[i].ref_position = arm.motor[i].act_position;
         arm.motor[i].plan_cnt = 0;
         arm.motor[i].plan.clear();
     }
@@ -2086,9 +2109,9 @@ void realtime_proc(void *arg)
                     if (enable_id == -1)
                     {
                         rightarm.state = DISABLE;
-                        for ( i = 0; i< leftarm.motornum ;i ++)
+                        for ( i = 0; i< rightarm.motornum ;i ++)
                         {
-                            leftarm.motor[i].servo_cmd = 0;
+                            rightarm.motor[i].servo_cmd = 0;
                         }
                     }
                     else if (enable_id < rightarm.motornum )
@@ -2102,9 +2125,9 @@ void realtime_proc(void *arg)
                     if (enable_id == -1)
                     {
                         head.state = DISABLE;
-                        for ( i = 0; i< leftarm.motornum ;i ++)
+                        for ( i = 0; i< head.motornum ;i ++)
                         {
-                            leftarm.motor[i].servo_cmd = 0;
+                            head.motor[i].servo_cmd = 0;
                         }
                     }
                     else if (enable_id < head.motornum )
@@ -2117,9 +2140,9 @@ void realtime_proc(void *arg)
                     if (enable_id == -1)
                     {
                         leg.state = DISABLE;
-                        for ( i = 0; i< leftarm.motornum ;i ++)
+                        for ( i = 0; i< leg.motornum ;i ++)
                         {
-                            leftarm.motor[i].servo_cmd = 0;
+                            leg.motor[i].servo_cmd = 0;
                         }
                     }
                     else if (enable_id < leg.motornum )
@@ -2487,17 +2510,23 @@ void realtime_proc(void *arg)
 
                 if (left_right == LEFT)
                 {
-                    leftarm.test_A = test_A;
-                    leftarm.test_T = test_T;
-                    leftarm.state = ON_MOVETEST;
-                    leftarm.fctrl.Switch = 0;
+                    if (leftarm.state == IDLE)
+                    {
+                        leftarm.test_A = test_A;
+                        leftarm.test_T = test_T;
+                        leftarm.state = ON_MOVETEST;
+                        leftarm.fctrl.Switch = 0;
+                    }
                 }
                 else if (left_right == RIGHT)
                 {
-                    rightarm.test_A = test_A;
-                    rightarm.test_T = test_T;
-                    rightarm.state = ON_MOVETEST;
-                    rightarm.fctrl.Switch = 0;
+                    if (rightarm.state == IDLE)
+                    {
+                        rightarm.test_A = test_A;
+                        rightarm.test_T = test_T;
+                        rightarm.state = ON_MOVETEST;
+                        rightarm.fctrl.Switch = 0;
+                    }
                 }
                 break;
             }
@@ -2635,7 +2664,7 @@ int main(int argc, char *argv[])
     }
   
     printf("Activating master...\n");
-    // if (ecrt_master_activate(master0)) return -1;
+    if (ecrt_master_activate(master0)) return -1;
     if (ecrt_master_activate(master1)) return -1;
 
     if (!(domain[0].domain_pd = ecrt_domain_data(domain[0].domain)))
