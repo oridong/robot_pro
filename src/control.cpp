@@ -67,9 +67,9 @@
 #define ELMO_GOLD 0x0000009a, 0x00030924
 #define ATI_FTSENSOR 0x00000732, 0x26483052
 
-#define R1 40       // mm 单位
-#define R2 30       // mm 单位
-#define radius 10       // mm 单位
+#define R1 40.0       // mm 单位
+#define R2 30.0       // mm 单位
+#define radius 10.0       // mm 单位
 
 /***************************************************************
  * 变量及参数， 注意：电机参数列表需要大于使用电机数量
@@ -96,7 +96,7 @@ const static uint8_t trackJointMotorMode = 8; // 履带关节电机运行模式
 // 插值周期
 const uint8_t armMotoritpTimes[] = {10, 10, 10, 10, 10, 10, 10}; // 在初始化时对电机设置，能够对不同电机进行不同的设置, 默认插值倍数（插值周期与控制周期比）为10
 const uint8_t headMotoritpTimes[] = {10, 10, 10};
-const uint8_t trackMotoritpTimes[] = {10, 10, 10, 10, 10, 10, 10, 10, 10};      // 4履带 + 1腰 + 4关节
+const uint8_t trackMotoritpTimes[] = {70, 70, 70, 70, 10, 10, 10, 10, 10};      // 4履带 + 1腰 + 4关节
 
 // 变量声明
 bodypart leftarm;
@@ -1223,17 +1223,20 @@ void readChassisData(bodypart & leg, trackpart & trc)
     for (i = 0; i < trc.motornum; i++)
     {
         // if (i == 0){
-        //     trc.motor[i].act_velocity = EC_READ_S32(domain[trc.dm_index].domain_pd + trc.motor[i].offset.act_velocity);
+            trc.motor[i].act_velocity = EC_READ_S32(domain[trc.dm_index].domain_pd + trc.motor[i].offset.act_velocity);
+            trc.motor[i].act_position = EC_READ_S32(domain[trc.dm_index].domain_pd + trc.motor[i].offset.act_position);
+
+            printf("%d,,", trc.motor[i].act_velocity);
         // }
         // else{
-            trc.motor[i].act_velocity = trc.motor[i].this_send;
+            // trc.motor[i].act_velocity = trc.motor[i].this_send;
         // }
 
         if (trc.motor[i].first_time == 0) // 初次进入，记录开机时刻位置作为期望位置
         {
-            printf("first:%d, act_velcity:%d\n", i, trc.motor[i].act_velocity);
+            printf("first:%d, act_velcity:%d,actposition: %d\n", i, trc.motor[i].act_velocity, trc.motor[i].act_position);
             trc.state = IDLE;
-            trc.motor[i].exp_velocity = trc.motor[i].act_velocity;
+            trc.motor[i].exp_velocity = 0;
             trc.motor[i].first_time = 1;
         }
         trc.jointVel[i] = (double)trc.motor[i].act_velocity / trc.jointGear[i];
@@ -1567,13 +1570,12 @@ void ctrlTrackMotor(trackpart &trc)
         break;
     
     case ON_CARMOVE:
-        printf_d(trc.jointGear,4);
-        trc.motor[0].exp_velocity = (trc.chassisVel_cmd[0] - trc.chassisVel_cmd[1] * R1) / trc.jointGear[0] * 524288 / 2 / PI;        // 单位 mm， rad/s, 临时 cnt/s
+        trc.motor[0].exp_velocity = (trc.chassisVel_cmd[0] - trc.chassisVel_cmd[1] * R1) / trc.jointGear[0] * 524288.0 / 2.0 / PI;        // 单位 mm， rad/s, 临时 cnt/s
         trc.motor[1].exp_velocity = (trc.chassisVel_cmd[0] - trc.chassisVel_cmd[1] * R2) / trc.jointGear[1];
         trc.motor[2].exp_velocity = (trc.chassisVel_cmd[0] + trc.chassisVel_cmd[1] * R2) / trc.jointGear[2];
         trc.motor[3].exp_velocity = (trc.chassisVel_cmd[0] + trc.chassisVel_cmd[1] * R1) / trc.jointGear[3];
         trc.watchdog ++;
-        // printf("%f,%f\n",trc.motor[0].exp_velocity, trc.motor[1].exp_velocity);
+        printf("%f,%d\n",trc.motor[0].exp_velocity, int(trc.motor[0].this_send));
         if (trc.watchdog > 5 * 1000)
         {
             for (i = 0; i< 4; i++)
@@ -1606,7 +1608,7 @@ void ctrlTrackMotor(trackpart &trc)
             trc.motor[i].plan_cnt = 0;
         }
         /********************** 填写指令，等待发送 **********************/ // ！！！！！！！！！
-        // EC_WRITE_S32(domain[trc.dm_index].domain_pd + trc.motor[i].offset.target_velocity, int(trc.motor[i].this_send));
+        EC_WRITE_S32(domain[trc.dm_index].domain_pd + trc.motor[i].offset.target_velocity, int(trc.motor[i].this_send));
     }
    
 
@@ -1695,7 +1697,7 @@ void realtime_proc(void *arg)
         case ENABLE:
 
             // ready = changeBodyMotorState(rightarm, 0, OPERATION_ENABLE);      // 临时为0
-            ready = changeTrackMotorState(track, 0, SWITCHED_ON);      // 临时为0
+            ready = changeTrackMotorState(track, 0, OPERATION_ENABLE);      // 临时为0
 
             if (ready)
             {
@@ -1876,10 +1878,10 @@ void realtime_proc(void *arg)
             case CAR_MOVE:
                 if (cmd.param_cnt == 2)     // 给定关节角
                 {
-                    track.chassisVel_cmd[0] = atof(cmd.param_list[0]);
+                    track.chassisVel_cmd[0] = atof(cmd.param_list[0]) * 1000;
                     track.chassisVel_cmd[1] = atof(cmd.param_list[1]);
                     track.state = ON_CARMOVE;
-                    printf_d(track.chassisVel_cmd, 2);
+                    track.watchdog = 0;
                 }
                 break;
 

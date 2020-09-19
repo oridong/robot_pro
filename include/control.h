@@ -144,6 +144,7 @@ typedef struct
     uint8_t first_time;
 
     int act_velocity; /* actual velocity in cnt */
+    int act_position;
     double exp_velocity;   /* expect velocity in cnt */
     double ref_velocity;
     double this_send;
