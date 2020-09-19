@@ -256,6 +256,9 @@ typedef struct
     uint16_t watchdog;
     uint16_t itp_period_times;
 
+    // 测试
+    uint8_t motor_use[7];
+
     int state;
 }trackpart;
 

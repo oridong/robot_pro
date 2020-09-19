@@ -18,6 +18,8 @@ extern void quatU2Axis(const double qin[4], double qout[4]);
 extern void schmdit(double in[9], double out[9]);
 extern int matrixInverse(double* pSourceR, int iNum, double* pDestR);
 
+extern int CM_Atof(char* source,double & doubleing);
+extern int CM_Atoi(char* source,int & integer);
 
 extern void printf_d(double * data, int size);
 #endif 

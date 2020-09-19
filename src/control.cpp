@@ -36,11 +36,16 @@
 #include "S_trajectory.h"
 #include "math_tool.h"
 
-
+# define ALL -1
 # define LEFT 0
 # define RIGHT 1
 # define HEAD 2
-# define LEG 3
+# define CHASSIS 3
+
+# define LEFT_ETHERCAT master[1], 1
+# define RIGHT_ETHERCAT master[0], 0
+# define HEAD_ETHERCAT master[1], 1
+# define CHASSIS_ETHERCAT master[1], 1
 /******************* CanOpen控制字 *******************/
 #define SM_trans2 0x0006
 #define SM_trans3 0x0007
@@ -80,6 +85,9 @@
 
 #define MotorNum 1 // 使用的电机数量
 
+#define ETHERCAT_MAX 4
+int ethercat_use[ETHERCAT_MAX] = {1, 1, 0, 0};
+int bodypart_use[4] = {1, 1, 0, 0};
 int leftarm_use_motor[8] = {1, 1, 1, 1, 0, 1, 1, 1};
 int rightarm_use_motor[8] = {1, 1, 0, 1, 0, 0, 1, 0};
 // EtherCAT 电机总线地址
@@ -144,10 +152,9 @@ static int main_exit = 0;
 /************************************************
  * EtherCat 相关结构体
  * *********************************************/
-static ec_master_t *master0 = NULL;
-static ec_master_state_t master0_state = {};
-static ec_master_t *master1 = NULL;
-static ec_master_state_t master1_state = {};
+static ec_master_t *master[4] ={NULL, NULL, NULL, NULL};
+static ec_master_t *master0 = {NULL};
+static ec_master_state_t master_state[4] = {{}};
 
 EC_domain domain[5];
 
@@ -326,10 +333,13 @@ int leftarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * motor
         arm.test_A = 90.0 * DEG2RAD;
         arm.motor_use[i] = leftarm_use_motor[i];
 
+
         if (arm.motor_use[i] == 1){
+
             arm.motor[i].alias = motor_pos[addr].alias;
             arm.motor[i].buspos = motor_pos[addr].buspos;
             addr ++ ;
+
             ec_pdo_entry_reg_t temp1 = {arm.motor[i].alias, arm.motor[i].buspos, ELMO_GOLD, spe_pos[0].index, spe_pos[0].subindex, &arm.motor[i].offset.target_position, NULL};
             ec_pdo_entry_reg_t temp2 = {arm.motor[i].alias, arm.motor[i].buspos, ELMO_GOLD, spe_pos[1].index, spe_pos[1].subindex, &arm.motor[i].offset.DO, NULL};
             ec_pdo_entry_reg_t temp3 = {arm.motor[i].alias, arm.motor[i].buspos, ELMO_GOLD, spe_pos[2].index, spe_pos[2].subindex, &arm.motor[i].offset.ctrl_word, NULL};
@@ -347,6 +357,8 @@ int leftarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * motor
             domain[dm_index].domain_reg.push_back(temp6);
             domain[dm_index].domain_reg.push_back(temp7);
             domain[dm_index].domain_reg.push_back(temp8);
+
+            printf("in\n");
 
             arm.motor[i].sc_dig_out = ecrt_master_slave_config(m, arm.motor[i].alias, arm.motor[i].buspos, ELMO_GOLD);
             if (!arm.motor[i].sc_dig_out)
@@ -426,6 +438,7 @@ int leftarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * motor
     } /* motor 循环*/
 
     // 初始化力传感器从站
+    arm.motor_use[7] = leftarm_use_motor[7];
     if (arm.motor_use[7] == 1){
         EC_position ft_pos = {motor_pos[addr].alias, motor_pos[addr].buspos};
         i = FT_sensor_init(arm, m, dm_index, ft_pos);
@@ -573,6 +586,7 @@ int rightarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * moto
     } /* motor 循环*/
 
     // 初始化力传感器从站
+    arm.motor_use[7] = rightarm_use_motor[7];
     if (arm.motor_use[7] == 1){
         EC_position ft_pos = {motor_pos[addr].alias, motor_pos[addr].buspos};
         i = FT_sensor_init(arm, m, dm_index, ft_pos);
@@ -1219,6 +1233,22 @@ void stopArmMotor(bodypart & arm)
         arm.motor[i].plan.clear();
     }
     arm.state = IDLE;
+}
+
+/*
+ * 停止手臂电机运动，输入左臂或右臂
+ */
+void stopTrackMotor(trackpart & trc)
+{
+    int i;
+    int motornum = trc.motornum;
+    for (i = 0; i < motornum; i++)
+    {
+        trc.motor[i].exp_velocity = 0;
+        trc.motor[i].plan_cnt = 0;
+        trc.motor[i].plan.clear();
+    }
+    trc.state = IDLE;
 }
 
 /*
@@ -1910,11 +1940,14 @@ void realtime_proc(void *arg)
         previous = rt_timer_read();     // 获取运行周期开始时间
 
         // 接收 EtherCAT 帧
-        ecrt_master_receive(master0);
-        ecrt_master_receive(master1);
-
-        ecrt_domain_process(domain[0].domain);
-        ecrt_domain_process(domain[1].domain);
+        for ( i =0; i< ETHERCAT_MAX; i++)
+        {
+            if (ethercat_use[i] == 1)
+            {
+                ecrt_master_receive(master[i]);
+                ecrt_domain_process(domain[i].domain);
+            }
+        }
 
         // readForceData(leftarm);
 
@@ -1923,23 +1956,52 @@ void realtime_proc(void *arg)
 
         case CONFIG_ELMO:
             ready = 1;
-            for (i = 0; i < 7; i++)
-            {
-                EC_WRITE_U8(domain[rightarm.dm_index].domain_pd + rightarm.motor[i].offset.mode_operation, rightarm.motor[i].mode);
-                EC_WRITE_U8(domain[leftarm.dm_index].domain_pd + leftarm.motor[i].offset.mode_operation, leftarm.motor[i].mode);
-                if (leftarm.motor_use[i] == 1){
-                    ready &= changeOneMotorState(leftarm, i, SWITCHED_ON);
-                }
-                if (rightarm.motor_use[i] == 1){
-                    ready &= changeOneMotorState(rightarm, i, SWITCHED_ON);
+            if (bodypart_use[LEFT]){
+                for (i = 0; i < leftarm.motornum; i++)
+                {
+                    EC_WRITE_U8(domain[leftarm.dm_index].domain_pd + leftarm.motor[i].offset.mode_operation, leftarm.motor[i].mode);
+                    if (leftarm.motor_use[i] == 1){
+                        ready &= changeOneMotorState(leftarm, i, SWITCHED_ON);
+                    }
                 }
             }
 
-            // for ( i = 0; i< track.motornum; i++)
-            // {
-            //     EC_WRITE_U8(domain[track.dm_index].domain_pd + track.motor[i].offset.mode_operation, track.motor[i].mode);
-            // }
-            // ready = changeTrackMotorState(track, 0, SWITCHED_ON);      // 临时为0
+            if (bodypart_use[RIGHT]){
+                for (i = 0; i < rightarm.motornum; i++)
+                {
+                    EC_WRITE_U8(domain[rightarm.dm_index].domain_pd + rightarm.motor[i].offset.mode_operation, rightarm.motor[i].mode);
+                    if (rightarm.motor_use[i] == 1){
+                        ready &= changeOneMotorState(rightarm, i, SWITCHED_ON);
+                    }
+                }
+            }
+
+            if (bodypart_use[HEAD]){
+                for (i = 0; i < head.motornum; i++)
+                {
+                    EC_WRITE_U8(domain[rightarm.dm_index].domain_pd + rightarm.motor[i].offset.mode_operation, rightarm.motor[i].mode);
+                    if (head.motor_use[i] == 1){
+                        ready &= changeOneMotorState(rightarm, i, SWITCHED_ON);
+                    }
+                }
+            }
+
+            if (bodypart_use[CHASSIS]){
+                for (i = 0; i < leg.motornum; i++)
+                {
+                    EC_WRITE_U8(domain[leg.dm_index].domain_pd + leg.motor[i].offset.mode_operation, leg.motor[i].mode);
+                    if (leg.motor_use[i] == 1){
+                        ready &= changeOneMotorState(leg, i, SWITCHED_ON);
+                    }
+                }
+                for (i = 0; i < track.motornum; i++)
+                {
+                    EC_WRITE_U8(domain[track.dm_index].domain_pd + track.motor[i].offset.mode_operation, track.motor[i].mode);
+                    if (track.motor_use[i] == 1){
+                        ready &= changeOneTrackMotorState(track, i, SWITCHED_ON);
+                    }
+                }
+            }
 
             // 在绝对编码器参与控制时写入期望位置才能使能电机
             // for (i = 0; i< 7; i++)
@@ -1976,10 +2038,16 @@ void realtime_proc(void *arg)
         case CONTROL:
 
             /********************** 读取当前位置 更新结构体 **********************/
-            readArmData(leftarm);
-            readArmData(rightarm);
-            // readChassisData(leg, track);
-            
+            if (bodypart_use[LEFT])
+                readArmData(leftarm);
+            if (bodypart_use[RIGHT])
+                readArmData(rightarm);
+            if (bodypart_use[HEAD])
+                readArmData(head);
+            if (bodypart_use[CHASSIS]){
+                readChassisData(leg, track);
+            }
+
             /********************** 接受并解析指令 根据指令进行控制 **********************/
             cmd = robotReceiveCommand();
 
@@ -1988,8 +2056,17 @@ void realtime_proc(void *arg)
             
             case STOP_MOVE:
             {
-                left_right = atoi(cmd.param_list[0]);
-                if (left_right == LEFT)
+                if (!CM_Atoi(cmd.param_list[0], left_right))
+                    break;
+                if (left_right == ALL)
+                {
+                    stopArmMotor(leftarm);
+                    stopArmMotor(rightarm);
+                    stopArmMotor(head);
+                    stopArmMotor(leg);
+                    stopTrackMotor(track);
+                }
+                else if (left_right == LEFT)
                 {
                     stopArmMotor(leftarm);
                 }
@@ -2001,9 +2078,10 @@ void realtime_proc(void *arg)
                 {
                     stopArmMotor(head);
                 }
-                else if (left_right == LEG)
+                else if (left_right == CHASSIS)
                 {
                     stopArmMotor(leg);
+                    stopTrackMotor(track);
                 }
                 
                 break;
@@ -2011,13 +2089,52 @@ void realtime_proc(void *arg)
 
             case ENABLE_MOTOR:
             {
-                left_right = atoi(cmd.param_list[0]);
-                enable_id = atoi(cmd.param_list[1]);
+                if (!CM_Atoi(cmd.param_list[0], left_right))
+                    break;
+                if (!CM_Atoi(cmd.param_list[1], enable_id))
+                    break;
+
                 if (enable_id < -1 || enable_id > 9)        // 非法数据
                 {   
                     break;
                 }
-                if (left_right == LEFT)
+                if (left_right == ALL){
+                    if (enable_id == -1)
+                    {
+                        if (bodypart_use[LEFT]){
+                            leftarm.state = IDLE;
+                            for ( i =0; i< leftarm.motornum; i++)
+                            {
+                                leftarm.motor[i].servo_cmd = 1;
+                            }
+                        }
+
+                        if (bodypart_use[RIGHT]){
+                            rightarm.state = IDLE;
+                            for ( i =0; i< rightarm.motornum; i++)
+                            {
+                                rightarm.motor[i].servo_cmd = 1;
+                            }
+                        }
+
+                        if (bodypart_use[HEAD]){
+                            head.state = IDLE;
+                            for ( i =0; i< head.motornum; i++)
+                            {
+                                head.motor[i].servo_cmd = 1;
+                            }
+                        }
+
+                        if (bodypart_use[CHASSIS]){
+                            leg.state = IDLE;
+                            for ( i =0; i< leg.motornum; i++)
+                            {
+                                leg.motor[i].servo_cmd = 1;
+                            }
+                        }
+                    }
+                }
+                else if (left_right == LEFT)
                 {
                     leftarm.state = IDLE;
                     if (enable_id == -1)
@@ -2063,7 +2180,7 @@ void realtime_proc(void *arg)
                         head.motor[enable_id].servo_cmd = 1;
                     }
                 }
-                else if ( left_right == LEG)
+                else if ( left_right == CHASSIS)
                 {
                     leg.state = IDLE;
                     if (enable_id == -1)
@@ -2083,13 +2200,51 @@ void realtime_proc(void *arg)
 
             case DISABLE_MOTOR:
             {
-                left_right = atoi(cmd.param_list[0]);
-                enable_id = atoi(cmd.param_list[1]);
+                if (!CM_Atoi(cmd.param_list[0], left_right))
+                    break;
+                if (!CM_Atoi(cmd.param_list[1], enable_id))
+                    break;
                 if (enable_id < -1 || enable_id > 9)        // 非法数据
                 {   
                     break;
                 }
-                if (left_right == LEFT)
+                if (left_right == ALL){
+                    if (enable_id == -1)
+                    {
+                        if (bodypart_use[LEFT]){
+                            leftarm.state = IDLE;
+                            for ( i =0; i< leftarm.motornum; i++)
+                            {
+                                leftarm.motor[i].servo_cmd = 0;
+                            }
+                        }
+
+                        if (bodypart_use[RIGHT]){
+                            rightarm.state = IDLE;
+                            for ( i =0; i< rightarm.motornum; i++)
+                            {
+                                rightarm.motor[i].servo_cmd = 0;
+                            }
+                        }
+
+                        if (bodypart_use[HEAD]){
+                            head.state = IDLE;
+                            for ( i =0; i< head.motornum; i++)
+                            {
+                                head.motor[i].servo_cmd = 0;
+                            }
+                        }
+
+                        if (bodypart_use[CHASSIS]){
+                            leg.state = IDLE;
+                            for ( i =0; i< leg.motornum; i++)
+                            {
+                                leg.motor[i].servo_cmd = 0;
+                            }
+                        }
+                    }
+                }
+                else if (left_right == LEFT)
                 {
                     if (enable_id == -1)
                     {
@@ -2135,7 +2290,7 @@ void realtime_proc(void *arg)
                         head.motor[enable_id].servo_cmd = 0;
                     }
                 }
-                else if ( left_right == LEG)
+                else if ( left_right == CHASSIS)
                 {
                     if (enable_id == -1)
                     {
@@ -2155,21 +2310,25 @@ void realtime_proc(void *arg)
 
             case MOVEJ:
             {
-                left_right = atoi(cmd.param_list[0]);
-                speedRate = atof(cmd.param_list[cmd.param_cnt - 1]);
+                if (!CM_Atoi(cmd.param_list[0], left_right))
+                    break;
+                if (!CM_Atof(cmd.param_list[cmd.param_cnt - 1], speedRate))
+                    break;
                 
                 if (cmd.param_cnt == 9)     // 给定关节角
                 {
                     for (i = 0;i < 7; i++)
                     {
-                        jointFinal[i] = atof(cmd.param_list[i + 1]);
+                        if (!CM_Atof(cmd.param_list[i + 1], jointFinal[i]))
+                            break;
                     }
                 }
                 else if (cmd.param_cnt == 8)        // 给定位姿
                 {
                     for (i = 0;i < 6; i++)
                     {
-                        poseFinal[i] = atof(cmd.param_list[i + 1]);
+                        if (!CM_Atof(cmd.param_list[i + 1], poseFinal[i]))
+                            break;
                     }
                     TfromPose(poseFinal, Tfinal);
                     /* 如果给定的是位姿 先求出位姿对应的关节角  静态大范围求解模式 β扫描间隔 0.01-3420us 0.1-520us*/
@@ -2190,7 +2349,8 @@ void realtime_proc(void *arg)
                 {
                     for (i = 0;i < 3; i++)
                     {
-                        jointFinal[i] = atof(cmd.param_list[i + 1]);
+                        if (!CM_Atof(cmd.param_list[i + 1], jointFinal[i]))
+                            break;
                     }
                 }
                 else{
@@ -2221,7 +2381,7 @@ void realtime_proc(void *arg)
                         moveJ(head, jointFinal, speedRate);
                     }
                 }
-                else if (left_right == LEG)
+                else if (left_right == CHASSIS)
                 {
                     if (leg.state == IDLE)
                     {
@@ -2236,13 +2396,16 @@ void realtime_proc(void *arg)
             case MOVEL:
             {
                 printf("in moveL\n");
-                left_right = atoi(cmd.param_list[0]);
-                speedRate = atof(cmd.param_list[cmd.param_cnt - 1]);
+                if (!CM_Atoi(cmd.param_list[0], left_right))
+                    break;
+                if (!CM_Atof(cmd.param_list[cmd.param_cnt - 1], speedRate))
+                    break;
                 if (cmd.param_cnt == 8)     // 给定关节角
                 {
                     for (i = 0;i < 6; i++)
                     {
-                        poseFinal[i] = atof(cmd.param_list[i + 1]);
+                        if (!CM_Atof(cmd.param_list[i + 1], poseFinal[i]))
+                            break;  
                     }
                     TfromPose(poseFinal, Tfinal);
                 }
@@ -2266,19 +2429,22 @@ void realtime_proc(void *arg)
 
             case MOVE_FOLLOW:    
             {   
-                left_right = atoi(cmd.param_list[0]);
+                if (!CM_Atoi(cmd.param_list[0], left_right))
+                    break;
                 if (cmd.param_cnt == 8)     // 给定关节角
                 {
                     for (i = 0;i < 7; i++)
                     {
-                        jointFinal[i] = atof(cmd.param_list[i + 1]);
+                        if (!CM_Atof(cmd.param_list[i + 1], jointFinal[i]))
+                            break;  
                     }
                 }
                 else if (cmd.param_cnt == 4)     // 给定关节角
                 {
                     for (i = 0;i < 3; i++)
                     {
-                        jointFinal[i] = atof(cmd.param_list[i + 1]);
+                        if (!CM_Atof(cmd.param_list[i + 1], jointFinal[i]))
+                            break;
                     }
                 }
                 else
@@ -2317,8 +2483,10 @@ void realtime_proc(void *arg)
             {
                 if (cmd.param_cnt == 2)     // 给定运行速度 mm/s rad/s
                 {
-                    track.chassisVel_cmd[0] = atof(cmd.param_list[0]);
-                    track.chassisVel_cmd[1] = atof(cmd.param_list[1]);
+                    if (!CM_Atof(cmd.param_list[0], track.chassisVel_cmd[0] ))
+                        break;
+                    if (!CM_Atof(cmd.param_list[1], track.chassisVel_cmd[1] ))
+                        break;
                     track.state = ON_CARMOVE;
                 }
                 break;
@@ -2336,7 +2504,8 @@ void realtime_proc(void *arg)
                         }
                         else
                         {
-                            poseFinal[i] = atof(cmd.param_list[i - 3]);
+                            if (!CM_Atof(cmd.param_list[i- 3], poseFinal[1] ))
+                                break;
                         }
                     }
                     TfromPose(poseFinal, Tfinal);
@@ -2346,16 +2515,14 @@ void realtime_proc(void *arg)
                 {
                     break;
                 }
-                head.motor[0].exp_position = atoi(cmd.param_list[0]);
-                head.motor[1].exp_position = atoi(cmd.param_list[1]);
-                head.motor[2].exp_position = atoi(cmd.param_list[2]);
-                printf("%f,%f,%f\n", head.motor[0].exp_position, head.motor[1].exp_position, head.motor[2].exp_position);
+                
                 break;
             }
 
             case FORCE_ENABLE:
             {
-                left_right = atoi(cmd.param_list[0]);
+                if (!CM_Atoi(cmd.param_list[0], left_right))
+                    break;
 
                 if (left_right == LEFT)
                 {
@@ -2376,7 +2543,8 @@ void realtime_proc(void *arg)
                     {
                         for (i = 0;i < 6; i++)
                         {
-                            force_param = atof(cmd.param_list[i + 1]);        // 接收 M
+                            if (!CM_Atof(cmd.param_list[i + 1], force_param))
+                                break;
                             if (force_param != 0.0)
                             {
                                 leftarm.fctrl.paramM[i] = force_param;
@@ -2384,7 +2552,8 @@ void realtime_proc(void *arg)
                         }
                         for (i = 0;i < 6; i++)
                         {
-                            force_param = atof(cmd.param_list[i + 1 + 6]);        // 接收 K
+                            if (!CM_Atof(cmd.param_list[i + 1 + 6], force_param))
+                                break;
                             if (force_param != 0.0)
                             {
                                 leftarm.fctrl.paramK[i] = force_param;
@@ -2392,7 +2561,8 @@ void realtime_proc(void *arg)
                         }
                         for (i = 0;i < 6; i++)
                         {
-                            force_param = atof(cmd.param_list[i + 1 + 12]);       // 接收 epsilon
+                            if (!CM_Atof(cmd.param_list[i + 1 + 12], force_param))
+                                break;
                             if (force_param != 0.0)
                             {
                                 leftarm.fctrl.paramC[i] = 2 * force_param * sqrt( leftarm.fctrl.paramK[i] * leftarm.fctrl.paramM[i]);
@@ -2431,7 +2601,8 @@ void realtime_proc(void *arg)
                     {
                         for (i = 0;i < 6; i++)
                         {
-                            force_param = atof(cmd.param_list[i + 1]);        // 接收 M
+                            if (!CM_Atof(cmd.param_list[i + 1], force_param))
+                                break;
                             if (force_param != 0.0)
                             {
                                 rightarm.fctrl.paramM[i] = force_param;
@@ -2439,7 +2610,8 @@ void realtime_proc(void *arg)
                         }
                         for (i = 0;i < 6; i++)
                         {
-                            force_param = atof(cmd.param_list[i + 1 + 6]);        // 接收 K
+                            if (!CM_Atof(cmd.param_list[i + 1 + 6], force_param))
+                                break;
                             if (force_param != 0.0)
                             {
                                 rightarm.fctrl.paramK[i] = force_param;
@@ -2447,7 +2619,8 @@ void realtime_proc(void *arg)
                         }
                         for (i = 0;i < 6; i++)
                         {
-                            force_param = atof(cmd.param_list[i + 1 + 12]);       // 接收 epsilon
+                            if (!CM_Atof(cmd.param_list[i + 1 + 12], force_param))
+                                break;
                             if (force_param != 0.0)
                             {
                                 rightarm.fctrl.paramC[i] = 2 * force_param * sqrt( rightarm.fctrl.paramK[i] * rightarm.fctrl.paramM[i]);
@@ -2472,7 +2645,8 @@ void realtime_proc(void *arg)
 
             case FORCE_DISABLE:
             {
-                 left_right = atoi(cmd.param_list[0]);
+                if (!CM_Atoi(cmd.param_list[0], left_right))
+                    break;
                 
                 if (left_right == LEFT)
                 {
@@ -2496,7 +2670,8 @@ void realtime_proc(void *arg)
             
             case MOVE_TEST:
             {
-                left_right = atoi(cmd.param_list[0]);
+                if (!CM_Atoi(cmd.param_list[0], left_right))
+                    break;
                 if (cmd.param_cnt == 1)
                 {
                     test_A = 90.0 * DEG2RAD;      // 单位 度
@@ -2504,8 +2679,11 @@ void realtime_proc(void *arg)
                 }
                 else if (cmd.param_cnt == 3)
                 {
-                    test_A = atof(cmd.param_list[1]) * DEG2RAD;
-                    test_T = atof(cmd.param_list[2]);
+                    if (!CM_Atof(cmd.param_list[1], test_A))
+                        break;  
+                    if (!CM_Atof(cmd.param_list[2], test_T))
+                        break;  
+                    test_A *= DEG2RAD;
                 }
 
                 if (left_right == LEFT)
@@ -2542,11 +2720,17 @@ void realtime_proc(void *arg)
             }
 
             /********************** 遍历各身体部位进行控制 **********************/
-            ctrlArmMotor(leftarm);       // 控制左臂电机运动
-            ctrlArmMotor(rightarm);       // 控制右臂电机运动
-            // ctrlheadMotor(head);         // 控制头部电机运动
-            // ctrlTrackMotor(track);          // 控制底盘履带电机运动
-            
+            if (bodypart_use[LEFT])
+                ctrlArmMotor(leftarm);       // 控制左臂电机运动
+            if (bodypart_use[RIGHT])
+                ctrlArmMotor(rightarm);       // 控制右臂电机运动
+            if (bodypart_use[HEAD])
+                ctrlArmMotor(head);         // 控制头部电机运动
+            if (bodypart_use[CHASSIS]){
+                ctrlArmMotor(leg);          // 控制底盘履带电机运动
+                ctrlTrackMotor(track);          // 控制底盘履带电机运动
+            }
+
             robotSendFeedback(leftarm, rightarm, head, leg);
 
             break;
@@ -2555,6 +2739,7 @@ void realtime_proc(void *arg)
 
             break;
         }
+        // 实时循环
 
         static time_t prev_second = 0;
         struct timeval tv;
@@ -2565,11 +2750,24 @@ void realtime_proc(void *arg)
             prev_second = tv.tv_sec;
         }
 
+        // queue process data
+        for (i = 0; i< ETHERCAT_MAX; i++)
+        {
+            if (ethercat_use[i] == 1)
+            {
+                ecrt_domain_queue(domain[i].domain);
+            }
+        }
+
         // send process data
-        ecrt_domain_queue(domain[0].domain);
-        ecrt_domain_queue(domain[1].domain);
-        ecrt_master_send(master0);
-        ecrt_master_send(master1);
+        for (i = 0; i< ETHERCAT_MAX; i++)
+        {
+            if (ethercat_use[i] == 1)
+            {
+                ecrt_master_send(master[i]);
+            }
+        }
+      
         now = rt_timer_read();
         period = (now - previous) / 1000; //us
         // printf( "AKD: Loop time : %ldus\n",(long)period);
@@ -2581,10 +2779,23 @@ void realtime_proc(void *arg)
     rt_task_wait_period(NULL);
     changeBodyMotorState(leftarm, -1, SWITCHED_ON);
 
-    ecrt_domain_queue(domain[0].domain);
-    ecrt_domain_queue(domain[1].domain);
-    ecrt_master_send(master1);
-    ecrt_master_send(master0);
+    // queue process data
+    for (i = 0; i< ETHERCAT_MAX; i++)
+    {
+        if (ethercat_use[i] == 1)
+        {
+            ecrt_domain_queue(domain[i].domain);
+        }
+    }
+
+    // send process data
+    for (i = 0; i< ETHERCAT_MAX; i++)
+    {
+        if (ethercat_use[i] == 1)
+        {
+            ecrt_master_send(master[i]);
+        }
+    }
     main_exit = 1;
 }
 
@@ -2604,6 +2815,7 @@ void signal_handler(int sig)
 int main(int argc, char *argv[])
 {
     int ret;
+    int i;
 
     /* Perform auto-init of rt_print buffers if the task doesn't do so */
     rt_print_auto_init(1);
@@ -2621,64 +2833,74 @@ int main(int argc, char *argv[])
 
     // ==================== 配置 EtherCAT 主站 ======================== //
     printf("Requesting master...\n");
-    master0 = ecrt_request_master(0);
-    if (!master0) return -1;
+    for (i = 0; i< ETHERCAT_MAX; i ++)
+    {
+        if (ethercat_use[i] == 1)
+        {
+            master[i] = ecrt_request_master(i);
+            if (!master[i]) return -1;
 
-    master1 = ecrt_request_master(1);
-    if (!master1) return -1;
-
-    domain[0].domain = ecrt_master_create_domain(master0);
-    if (!domain[0].domain) return -1;
-
-    domain[1].domain = ecrt_master_create_domain(master1);
-    if (!domain[1].domain) return -1;
+            domain[i].domain = ecrt_master_create_domain(master[i]);
+            if (!domain[i].domain) return -1;
+        }
+    }
+    
     // ==================== 配置EtherCAT 从站 ======================== //
     printf("Creating slave configurations...\n");
-    if (!leftarmInit(leftarm, master1, 1, left_slave_pos)) return -1;       // 配置左臂从站， 包括7个关节电机和1个力传感器, master0, domain0
-    printf("leftarm init successed...\n");
-
-    if (!rightarmInit(rightarm, master0, 0, right_slave_pos)) return -1;       // 配置右臂从站， 包括7个关节电机和1个力传感器, master0, domain0
-    printf("rightarm init successed...\n");
-
-    // if (!headInit(head, master0, 0, right_slave_pos)) return -1;       // 配置头从站， 包括3个关节电机,master0, domain0
-    // printf("head init successed...\n");
-
-    // if (!chassisInit(leg, track, master0, 0, track_slave_pos)) return -1;       // 配置头从站， 包括3个关节电机,master0, domain0
-    // printf("chassis init successed...\n");
+    if (bodypart_use[LEFT] == 1){
+        if (!leftarmInit(leftarm, LEFT_ETHERCAT, left_slave_pos)) 
+            return -1;       // 配置左臂从站， 包括7个关节电机和1个力传感器, master0, domain0
+        printf("leftarm init successed...\n");
+    }
+    if (bodypart_use[RIGHT] == 1){
+        if (!rightarmInit(rightarm, RIGHT_ETHERCAT, right_slave_pos)) 
+            return -1;       // 配置右臂从站， 包括7个关节电机和1个力传感器, master0, domain0
+        printf("leftarm init successed...\n");
+    }
+    if (bodypart_use[HEAD] == 1){
+        if (!headInit(head, HEAD_ETHERCAT, head_slave_pos)) 
+            return -1;       // 配置左臂从站， 包括7个关节电机和1个力传感器, master0, domain0
+        printf("leftarm init successed...\n");
+    }
+    if (bodypart_use[CHASSIS] == 1 ){
+        if (!chassisInit(leg, track, CHASSIS_ETHERCAT, track_slave_pos)) 
+            return -1;       // 配置左臂从站， 包括7个关节电机和1个力传感器, master0, domain0
+        printf("leftarm init successed...\n");
+    }
     
     // EC_position ft_pos = {0,0};
     // if (!FT_sensor_init(leftarm, master1, 1, ft_pos)) return -1;
     // printf("rightarm ftsensor init successed...\n");
 
     // ==================== 配置 EtherCAT PDO，激活主站，得到domain指针 ======================== //
-    if (ArrayDomainRegs(domain[0]))
+    for (i = 0; i< ETHERCAT_MAX; i ++)
     {
-        fprintf(stderr, "PDO domain0 entry registration failed!\n");
-        return -1;
-    }
-    
-    if (ArrayDomainRegs(domain[1]))
-    {
-        fprintf(stderr, "PDO domain1 entry registration failed!\n");
-        return -1;
+        if (ethercat_use[i] == 1)
+        {
+            if (ArrayDomainRegs(domain[i]))
+            {
+                fprintf(stderr, "PDO domain0 entry registration failed!\n");
+                return -1;
+            }
+        }
     }
   
     printf("Activating master...\n");
-    if (ecrt_master_activate(master0)) return -1;
-    if (ecrt_master_activate(master1)) return -1;
-
-    if (!(domain[0].domain_pd = ecrt_domain_data(domain[0].domain)))
+    for (i = 0; i< ETHERCAT_MAX; i ++)
     {
-        fprintf(stderr, "Failed to get domain data pointer.\n");
-        return -1;
+        if (ethercat_use[i] == 1)
+        {
+            if (ecrt_master_activate(master[i])) 
+                return -1;
+        
+            if (!(domain[i].domain_pd = ecrt_domain_data(domain[i].domain)))
+            {
+                fprintf(stderr, "Failed to get domain data pointer.\n");
+                return -1;
+            }
+        }
     }
-
-    if (!(domain[1].domain_pd = ecrt_domain_data(domain[1].domain)))
-    {
-        fprintf(stderr, "Failed to get domain data pointer.\n");
-        return -1;
-    }
-   
+    
     // ============================== 实时进程 ============================== //
     ret = rt_task_create(&my_task, "my_task", 0, 80, T_FPU);
     if (ret < 0)
@@ -2709,8 +2931,13 @@ int main(int argc, char *argv[])
     rt_task_delete(&my_task);
 
     printf("End of Program\n");
-    ecrt_release_master(master1);
-    ecrt_release_master(master0);
+    for (i = 0; i< ETHERCAT_MAX; i ++)
+    {
+        if (ethercat_use[i] == 1)
+        {    
+            ecrt_release_master(master[i]);
+        }
+    }
 
     return 0;
 }
