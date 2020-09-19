@@ -41,11 +41,12 @@
 # define RIGHT 1
 # define HEAD 2
 # define CHASSIS 3
+# define TRACK 4
 
 # define LEFT_ETHERCAT master[1], 1
 # define RIGHT_ETHERCAT master[0], 0
 # define HEAD_ETHERCAT master[1], 1
-# define CHASSIS_ETHERCAT master[1], 1
+# define CHASSIS_ETHERCAT master[3], 3
 /******************* CanOpen控制字 *******************/
 #define SM_trans2 0x0006
 #define SM_trans3 0x0007
@@ -75,31 +76,31 @@
 #define ELMO_GOLD 0x0000009a, 0x00030924
 #define ATI_FTSENSOR 0x00000732, 0x26483052
 
-#define R1 40.0       // mm 单位 远端半径
-#define R2 30.0       // mm 单位 近端半径
-#define radius 10.0       // mm 单位
+#define R1 310.0       // mm 单位 远端半径
+#define R2 190.0       // mm 单位 近端半径
+#define radius 130.0       // mm 单位
 
 /***************************************************************
  * 变量及参数， 注意：电机参数列表需要大于使用电机数量
  /**************************************************************/
 
-#define MotorNum 1 // 使用的电机数量
-
 #define ETHERCAT_MAX 4
-int ethercat_use[ETHERCAT_MAX] = {1, 1, 0, 0};
-int bodypart_use[4] = {1, 1, 0, 0};
+int ethercat_use[ETHERCAT_MAX] = {1, 1, 0, 1};
+int bodypart_use[4] = {1, 1, 0, 1};
 int leftarm_use_motor[8] = {1, 1, 1, 1, 0, 1, 1, 1};
 int rightarm_use_motor[8] = {1, 1, 0, 1, 0, 0, 1, 0};
+int track_use_motor[4] = {1, 1, 1, 1};
+int leg_use_motor[5] = {0, 0, 0, 0, 0};
 // EtherCAT 电机总线地址
 static EC_position left_slave_pos[] = {{0, 0}, {0, 1}, {0, 2}, {0, 3}, {0, 4}, {0, 5}, {0, 6}, {0, 7}}; 
 static EC_position right_slave_pos[] = {{0, 0}, {0, 1}, {0, 2}, {0, 3}, {0, 4}, {0, 5}, {0, 6}, {0, 7}};
 static EC_position head_slave_pos[] = {{0, 0}, {0, 1}, {0, 2}};
-static EC_position track_slave_pos[] = {{0, 0}, {0, 1}, {0, 2}, {0, 2}, {0, 2}, {0, 2}, {0, 2}, {0, 0}, {0, 0}};
+static EC_position track_slave_pos[] = {{0, 3}, {0, 1}, {0, 5}, {0, 7}, {0, 8}, {0, 2}, {0, 0}, {0, 4}, {0, 6}};
   
 static double leftarmGear[7] = {160.0 * 20480 * 2.0 / PI, 160.0 * 20480 * 2.0 / PI, 100.0 * 20480 * 2.0 / PI, 100.0 * 20480 * 2.0 / PI, 100.0 * 18000 * 2.0 / PI, 200 * 32768 * 2.0 / PI, 200 * 32768 * 2.0 / PI};
 static double rightarmGear[7] = {160.0 * 20480 * 2.0 / PI, 160.0 * 20480 * 2.0 / PI, 100.0 * 20480 * 2.0 / PI, 100.0 * 20480 * 2.0 / PI, 100.0 * 18000 * 2.0 / PI, 200 * 32768 * 2.0 / PI, 200 * 32768 * 2.0 / PI};
 static double headGear[3] = {100.0, 100.0, 100.0};
-static double trackGear[9] = {10.0/radius/2.0/PI*524288, 10.0/radius/2.0/PI*524288, 10.0/radius/2.0/PI*524288, 10.0/radius/2.0/PI*524288, 100.0, 100.0, 100.0, 100.0, 100.0};
+static double trackGear[9] = {6.0/radius/2.0/PI*524288, 6.0/radius/2.0/PI*524288, 6.0/radius/2.0/PI*524288, 6.0/radius/2.0/PI*524288, 100.0, 160.0 * 30720 * 2.0 /PI, 160.0 * 30720 * 2.0 /PI, 160.0 * 30720 * 2.0 /PI, 160.0 * 30720 * 2.0 /PI};
 
 const static uint8_t armMotorMode = 8; // 机械臂电机运行模式
 const static uint8_t headMotorMode = 8; // 头部电机运行模式
@@ -682,14 +683,69 @@ int chassisInit(bodypart &arm, trackpart & trc, ec_master_t *m, int dm_index, EC
 
     arm.dm_index = dm_index;        // 记录当前身体部分所使用的domain
     arm.movefollowCnt = 0;
-    arm.motornum = 0;                // ！！！！！！！！！
-    arm.state = IDLE;
+    arm.motornum = 5;            
+    arm.state = DISABLE;
 
     trc.dm_index = dm_index;
-    trc.motornum = 1;               // ！！！！！！！！！
-    trc.state = IDLE;
+    trc.motornum = 4;          
+    trc.state = DISABLE;
 
-    for (j = 0; j< arm.motornum; j ++)
+    uint8_t addr = 0;
+
+    // 初始化履带电机
+    for (i = 0; i < trc.motornum; i++)
+    {
+        trc.motor[i].first_time = 0;
+        trc.motor[i].exp_velocity = 0;
+        trc.motor[i].act_velocity = 0;
+        trc.motor[i].mode = trackSpeedMotorMode;
+        trc.motor[i].this_send = 0;
+        trc.motor[i].itp_period_times = trackMotoritpTimes[i];
+        trc.motor[i].plan_cnt = 0;
+        trc.motor[i].plan_run_time = 0.0f;
+
+        trc.jointGear[i] = trackGear[i];
+        trc.motor_use[i] = track_use_motor[i];
+
+        if (track_use_motor[i] == 1)
+        {
+            trc.motor[i].alias = motor_pos[i].alias;
+            trc.motor[i].buspos = motor_pos[i].buspos;
+
+            ec_pdo_entry_reg_t temp1 = {trc.motor[i].alias, trc.motor[i].buspos, ELMO_GOLD, spe_vel[0].index, spe_vel[0].subindex, &trc.motor[i].offset.target_velocity, NULL};
+            ec_pdo_entry_reg_t temp2 = {trc.motor[i].alias, trc.motor[i].buspos, ELMO_GOLD, spe_vel[1].index, spe_vel[1].subindex, &trc.motor[i].offset.ctrl_word, NULL};
+            ec_pdo_entry_reg_t temp3 = {trc.motor[i].alias, trc.motor[i].buspos, ELMO_GOLD, spe_vel[2].index, spe_vel[2].subindex, &trc.motor[i].offset.mode_operation, NULL};
+            ec_pdo_entry_reg_t temp4 = {trc.motor[i].alias, trc.motor[i].buspos, ELMO_GOLD, spe_vel[3].index, spe_vel[3].subindex, &trc.motor[i].offset.act_position, NULL};
+            ec_pdo_entry_reg_t temp5 = {trc.motor[i].alias, trc.motor[i].buspos, ELMO_GOLD, spe_vel[4].index, spe_vel[4].subindex, &trc.motor[i].offset.DI, NULL};
+            ec_pdo_entry_reg_t temp6 = {trc.motor[i].alias, trc.motor[i].buspos, ELMO_GOLD, spe_vel[5].index, spe_vel[5].subindex, &trc.motor[i].offset.act_velocity, NULL};
+            ec_pdo_entry_reg_t temp7 = {trc.motor[i].alias, trc.motor[i].buspos, ELMO_GOLD, spe_vel[6].index, spe_vel[6].subindex, &trc.motor[i].offset.status_word, NULL};
+
+            domain[dm_index].domain_reg.push_back(temp1);
+            domain[dm_index].domain_reg.push_back(temp2);
+            domain[dm_index].domain_reg.push_back(temp3);
+            domain[dm_index].domain_reg.push_back(temp4);
+            domain[dm_index].domain_reg.push_back(temp5);
+            domain[dm_index].domain_reg.push_back(temp6);
+            domain[dm_index].domain_reg.push_back(temp7);
+
+            trc.motor[i].sc_dig_out = ecrt_master_slave_config(m, trc.motor[i].alias, trc.motor[i].buspos, ELMO_GOLD);
+            if (!trc.motor[i].sc_dig_out)
+            {
+                fprintf(stderr, "Failed to get slave configuration, No.%d.\n", i);
+                return 0;
+            }
+            if (ecrt_slave_config_pdos(trc.motor[i].sc_dig_out, EC_END, ss_vels))
+            {
+                fprintf(stderr, "Failed to configure PDOs. No.%d.\n", i);
+                return 0;
+            }
+        }
+        
+    } /* motor 循环*/
+
+    addr = 4;
+    // 初始化腰部及关节电机
+    for (i = 0; i < arm.motornum; i++) 
     {
         arm.motor[j].first_time = 0;
         arm.motor[j].exp_position = 0;
@@ -701,122 +757,79 @@ int chassisInit(bodypart &arm, trackpart & trc, ec_master_t *m, int dm_index, EC
         arm.motor[j].plan_run_time = 0.0f;
 
         arm.jointGear[j] = trackGear[j + 4];
-    }
 
-    for (j = 0; j< 4; j ++)     
-    {
-        trc.motor[j].first_time = 0;
-        trc.motor[j].exp_velocity = 0;
-        trc.motor[j].act_velocity = 0;
-        trc.motor[j].mode = trackSpeedMotorMode;
-        trc.motor[j].this_send = 0;
-        trc.motor[j].itp_period_times = trackMotoritpTimes[j];
-        trc.motor[j].plan_cnt = 0;
-        trc.motor[j].plan_run_time = 0.0f;
-
-        trc.jointGear[j] = trackGear[j];
-    }
-
-    // 初始化履带电机
-    for (i = 0; i < trc.motornum; i++)     // ！！！！！！！！！ 4
-    {
-        trc.motor[i].alias = motor_pos[i].alias;
-        trc.motor[i].buspos = motor_pos[i].buspos;
-
-        ec_pdo_entry_reg_t temp1 = {motor_pos[i].alias, motor_pos[i].buspos, ELMO_GOLD, spe_vel[0].index, spe_vel[0].subindex, &trc.motor[i].offset.target_velocity, NULL};
-        ec_pdo_entry_reg_t temp2 = {motor_pos[i].alias, motor_pos[i].buspos, ELMO_GOLD, spe_vel[1].index, spe_vel[1].subindex, &trc.motor[i].offset.ctrl_word, NULL};
-        ec_pdo_entry_reg_t temp3 = {motor_pos[i].alias, motor_pos[i].buspos, ELMO_GOLD, spe_vel[2].index, spe_vel[2].subindex, &trc.motor[i].offset.mode_operation, NULL};
-        ec_pdo_entry_reg_t temp4 = {motor_pos[i].alias, motor_pos[i].buspos, ELMO_GOLD, spe_vel[3].index, spe_vel[3].subindex, &trc.motor[i].offset.act_position, NULL};
-        ec_pdo_entry_reg_t temp5 = {motor_pos[i].alias, motor_pos[i].buspos, ELMO_GOLD, spe_vel[4].index, spe_vel[4].subindex, &trc.motor[i].offset.DI, NULL};
-        ec_pdo_entry_reg_t temp6 = {motor_pos[i].alias, motor_pos[i].buspos, ELMO_GOLD, spe_vel[5].index, spe_vel[5].subindex, &trc.motor[i].offset.act_velocity, NULL};
-        ec_pdo_entry_reg_t temp7 = {motor_pos[i].alias, motor_pos[i].buspos, ELMO_GOLD, spe_vel[6].index, spe_vel[6].subindex, &trc.motor[i].offset.status_word, NULL};
-
-        domain[dm_index].domain_reg.push_back(temp1);
-        domain[dm_index].domain_reg.push_back(temp2);
-        domain[dm_index].domain_reg.push_back(temp3);
-        domain[dm_index].domain_reg.push_back(temp4);
-        domain[dm_index].domain_reg.push_back(temp5);
-        domain[dm_index].domain_reg.push_back(temp6);
-        domain[dm_index].domain_reg.push_back(temp7);
-
-        trc.motor[i].sc_dig_out = ecrt_master_slave_config(m, motor_pos[i].alias, motor_pos[i].buspos, ELMO_GOLD);
-        if (!trc.motor[i].sc_dig_out)
+        if (leg_use_motor[i] == 1)
         {
-            fprintf(stderr, "Failed to get slave configuration, No.%d.\n", i);
-            return 0;
+            arm.motor[i].alias = motor_pos[addr].alias;
+            arm.motor[i].buspos = motor_pos[addr].buspos;
+            addr ++;
+
+            ec_pdo_entry_reg_t temp1 = {arm.motor[i].alias, arm.motor[i].buspos, ELMO_GOLD, spe_pos[0].index, spe_pos[0].subindex, &arm.motor[i].offset.target_position, NULL};
+            ec_pdo_entry_reg_t temp2 = {arm.motor[i].alias, arm.motor[i].buspos, ELMO_GOLD, spe_pos[1].index, spe_pos[1].subindex, &arm.motor[i].offset.DO, NULL};
+            ec_pdo_entry_reg_t temp3 = {arm.motor[i].alias, arm.motor[i].buspos, ELMO_GOLD, spe_pos[2].index, spe_pos[2].subindex, &arm.motor[i].offset.ctrl_word, NULL};
+            ec_pdo_entry_reg_t temp4 = {arm.motor[i].alias, arm.motor[i].buspos, ELMO_GOLD, spe_pos[3].index, spe_pos[3].subindex, &arm.motor[i].offset.mode_operation, NULL};
+            ec_pdo_entry_reg_t temp5 = {arm.motor[i].alias, arm.motor[i].buspos, ELMO_GOLD, spe_pos[4].index, spe_pos[4].subindex, &arm.motor[i].offset.act_position, NULL};
+            ec_pdo_entry_reg_t temp6 = {arm.motor[i].alias, arm.motor[i].buspos, ELMO_GOLD, spe_pos[5].index, spe_pos[5].subindex, &arm.motor[i].offset.DI, NULL};
+            ec_pdo_entry_reg_t temp7 = {arm.motor[i].alias, arm.motor[i].buspos, ELMO_GOLD, spe_pos[6].index, spe_pos[6].subindex, &arm.motor[i].offset.status_word, NULL};
+            ec_pdo_entry_reg_t temp8 = {arm.motor[i].alias, arm.motor[i].buspos, ELMO_GOLD, spe_pos[7].index, spe_pos[7].subindex, &arm.motor[i].offset.ain, NULL};
+
+            domain[dm_index].domain_reg.push_back(temp1);
+            domain[dm_index].domain_reg.push_back(temp2);
+            domain[dm_index].domain_reg.push_back(temp3);
+            domain[dm_index].domain_reg.push_back(temp4);
+            domain[dm_index].domain_reg.push_back(temp5);
+            domain[dm_index].domain_reg.push_back(temp6);
+            domain[dm_index].domain_reg.push_back(temp7);
+            domain[dm_index].domain_reg.push_back(temp8);
+
+            arm.motor[i].sc_dig_out = ecrt_master_slave_config(m, arm.motor[i].alias, arm.motor[i].buspos, ELMO_GOLD);
+            if (!arm.motor[i].sc_dig_out)
+            {
+                fprintf(stderr, "Failed to get slave configuration, No.%d.\n", i);
+                return 0;
+            }
+            if (ecrt_slave_config_pdos(arm.motor[i].sc_dig_out, EC_END, ss_pos))
+            {
+                fprintf(stderr, "Failed to configure PDOs. No.%d.\n", i);
+                return 0;
+            }
+
+            // ==================== 读写 SDO，配置0x2f41:0x00, 加入AD-input2到PDO中 ======================== //
+            // 1、读入0x2f41:0x00 当前的值
+            uint8_t result[4];
+            size_t target_size = 4;
+            size_t result_size;
+            uint32_t abort_code;
+
+            if (ecrt_master_sdo_upload(m, arm.motor[i].buspos, 0x2F41, 0, result, target_size, &result_size, &abort_code)) // 读SDO， 0x2F41:0 为用户应用配置字
+            {
+                fprintf(stderr, "Failed to get sdo data.\n");
+                return 0;
+            }
+
+            // 2、写入0x40000 到0x2f41:0x00 配置用户自定义 pdo 的功能
+            uint32_t data = 0x40000;
+            uint8_t *data_send = (uint8_t *)&data;
+            size_t data_size = sizeof(data);
+            if (!ecrt_master_sdo_download(m, arm.motor[i].buspos, 0x2f41, 0, data_send, data_size, &abort_code)) // 写SDO，0x2F41:0 16-19位配置为4 即可开启模拟二通道输入
+            {
+                printf("Set App to analog input 2 successed!\n");
+            }
+
+            // 3、重读检验是否成功写入
+            if (ecrt_master_sdo_upload(m, arm.motor[i].buspos, 0x2F41, 0, result, target_size, &result_size, &abort_code)) // 读SDO， 0x2F41:0 为用户应用配置字
+            {
+                fprintf(stderr, "Failed to get sdo data.\n");
+                return 0;
+            }
+
+            if (ecrt_master_sdo_upload(m, arm.motor[i].buspos, 0x6064, 0, result, target_size, &result_size, &abort_code)) // 读SDO， 0x2F41:0 为用户应用配置字
+            {
+                fprintf(stderr, "Failed to get sdo data.\n");
+                return 0;
+            }
+            arm.motor[i].start_pos = *((uint32_t *)result);
         }
-        if (ecrt_slave_config_pdos(trc.motor[i].sc_dig_out, EC_END, ss_vels))
-        {
-            fprintf(stderr, "Failed to configure PDOs. No.%d.\n", i);
-            return 0;
-        }
-    } /* motor 循环*/
-
-    // 初始化腰部及关节电机
-    for (i = 0; i < arm.motornum; i++) 
-    {
-        arm.motor[i].alias = motor_pos[i].alias;
-        arm.motor[i].buspos = motor_pos[i].buspos;
-
-        ec_pdo_entry_reg_t temp1 = {motor_pos[i].alias, motor_pos[i].buspos, ELMO_GOLD, spe_pos[0].index, spe_pos[0].subindex, &arm.motor[i].offset.target_position, NULL};
-        ec_pdo_entry_reg_t temp2 = {motor_pos[i].alias, motor_pos[i].buspos, ELMO_GOLD, spe_pos[1].index, spe_pos[1].subindex, &arm.motor[i].offset.DO, NULL};
-        ec_pdo_entry_reg_t temp3 = {motor_pos[i].alias, motor_pos[i].buspos, ELMO_GOLD, spe_pos[2].index, spe_pos[2].subindex, &arm.motor[i].offset.ctrl_word, NULL};
-        ec_pdo_entry_reg_t temp4 = {motor_pos[i].alias, motor_pos[i].buspos, ELMO_GOLD, spe_pos[3].index, spe_pos[3].subindex, &arm.motor[i].offset.mode_operation, NULL};
-        ec_pdo_entry_reg_t temp5 = {motor_pos[i].alias, motor_pos[i].buspos, ELMO_GOLD, spe_pos[4].index, spe_pos[4].subindex, &arm.motor[i].offset.act_position, NULL};
-        ec_pdo_entry_reg_t temp6 = {motor_pos[i].alias, motor_pos[i].buspos, ELMO_GOLD, spe_pos[5].index, spe_pos[5].subindex, &arm.motor[i].offset.DI, NULL};
-        ec_pdo_entry_reg_t temp7 = {motor_pos[i].alias, motor_pos[i].buspos, ELMO_GOLD, spe_pos[6].index, spe_pos[6].subindex, &arm.motor[i].offset.status_word, NULL};
-        ec_pdo_entry_reg_t temp8 = {motor_pos[i].alias, motor_pos[i].buspos, ELMO_GOLD, spe_pos[7].index, spe_pos[7].subindex, &arm.motor[i].offset.ain, NULL};
-
-        domain[dm_index].domain_reg.push_back(temp1);
-        domain[dm_index].domain_reg.push_back(temp2);
-        domain[dm_index].domain_reg.push_back(temp3);
-        domain[dm_index].domain_reg.push_back(temp4);
-        domain[dm_index].domain_reg.push_back(temp5);
-        domain[dm_index].domain_reg.push_back(temp6);
-        domain[dm_index].domain_reg.push_back(temp7);
-        domain[dm_index].domain_reg.push_back(temp8);
-
-        arm.motor[i].sc_dig_out = ecrt_master_slave_config(m, motor_pos[i].alias, motor_pos[i].buspos, ELMO_GOLD);
-        if (!arm.motor[i].sc_dig_out)
-        {
-            fprintf(stderr, "Failed to get slave configuration, No.%d.\n", i);
-            return 0;
-        }
-        if (ecrt_slave_config_pdos(arm.motor[i].sc_dig_out, EC_END, ss_pos))
-        {
-            fprintf(stderr, "Failed to configure PDOs. No.%d.\n", i);
-            return 0;
-        }
-
-        // ==================== 读写 SDO，配置0x2f41:0x00, 加入AD-input2到PDO中 ======================== //
-        // 1、读入0x2f41:0x00 当前的值
-        uint8_t result[4];
-        size_t target_size = 4;
-        size_t result_size;
-        uint32_t abort_code;
-
-        if (ecrt_master_sdo_upload(m, arm.motor[i].buspos, 0x2F41, 0, result, target_size, &result_size, &abort_code)) // 读SDO， 0x2F41:0 为用户应用配置字
-        {
-            fprintf(stderr, "Failed to get sdo data.\n");
-            return 0;
-        }
-
-        // 2、写入0x40000 到0x2f41:0x00 配置用户自定义 pdo 的功能
-        uint32_t data = 0x40000;
-        uint8_t *data_send = (uint8_t *)&data;
-        size_t data_size = sizeof(data);
-        if (!ecrt_master_sdo_download(m, arm.motor[i].buspos, 0x2f41, 0, data_send, data_size, &abort_code)) // 写SDO，0x2F41:0 16-19位配置为4 即可开启模拟二通道输入
-        {
-            printf("Set App to analog input 2 successed!\n");
-        }
-
-        // 3、重读检验是否成功写入
-        if (ecrt_master_sdo_upload(m, arm.motor[i].buspos, 0x2F41, 0, result, target_size, &result_size, &abort_code)) // 读SDO， 0x2F41:0 为用户应用配置字
-        {
-            fprintf(stderr, "Failed to get sdo data.\n");
-            return 0;
-        }
-
     } /* motor 循环*/
     
     return 1;
@@ -1341,13 +1354,13 @@ void clearForceSensor(ft_sensor &endft)
 void readChassisData(bodypart & leg, trackpart & trc)
 {
     int i;
-    for (i = 0; i < 0; i++)
+    for (i = 0; i < leg.motornum; i++)
     {
         // if (i == 0){
-            // leg.motor[i].act_position = EC_READ_S32(domain[leg.dm_index].domain_pd + leg.motor[i].offset.act_position);
+            leg.motor[i].act_position = EC_READ_S32(domain[leg.dm_index].domain_pd + leg.motor[i].offset.act_position);
         // }
         // else{
-            leg.motor[i].act_position = leg.motor[i].this_send;
+            // leg.motor[i].act_position = leg.motor[i].this_send;
         // }
 
         leg.motor[i].ain = EC_READ_U32(domain[leg.dm_index].domain_pd + leg.motor[i].offset.ain);
@@ -1367,7 +1380,6 @@ void readChassisData(bodypart & leg, trackpart & trc)
             trc.motor[i].act_velocity = EC_READ_S32(domain[trc.dm_index].domain_pd + trc.motor[i].offset.act_velocity);
             trc.motor[i].act_position = EC_READ_S32(domain[trc.dm_index].domain_pd + trc.motor[i].offset.act_position);
 
-            printf("%d,,", trc.motor[i].act_velocity);
         // }
         // else{
             // trc.motor[i].act_velocity = trc.motor[i].this_send;
@@ -1382,6 +1394,8 @@ void readChassisData(bodypart & leg, trackpart & trc)
         }
         trc.jointVel[i] = (double)trc.motor[i].act_velocity / trc.jointGear[i];
     }
+    // printf("%d,%d,%d,%d\n", trc.motor[0].act_velocity,  trc.motor[1].act_velocity,  trc.motor[2].act_velocity,  trc.motor[3].act_velocity);
+
 }
 
 /*
@@ -1741,39 +1755,52 @@ void ctrlLegMotor(bodypart &leg)
     int i, j;
     int motornum = leg.motornum;
     int ret;
-    int servoall = 0;
+    uint8_t servoCmdAll = 0;
+    uint8_t servoStateAll = 0;
    
     switch (leg.state)
     {
     case DISABLE:       // 整臂去使能状态
-        changeBodyMotorState(leg, -1, SWITCHED_ON);
+        for (i = 0; i< motornum; i++)
+            {
+                if (leg.motor[i].servo_state == 1)
+                {
+                    ret = changeOneMotorState(leg, i, SWITCHED_ON);
+                    if (ret)
+                        leg.motor[i].servo_state = 0;
+                }
+            }
         break;
 
     case IDLE:      // 空闲状态，可以进行任务
-
+        servoCmdAll = 0;
+        servoStateAll = 0;
         for (i = 0; i< motornum; i++)
         {
-            if (leg.motor[i].servo_cmd == 1)
+            if (leg.motor_use[i] == 1)
             {
-                leg.motor[i].ref_position = leg.motor[i].act_position;      // 清除遗留目标位置
-                ret = changeBodyMotorState(leg, i, OPERATION_ENABLE);
-                if (ret)
-                    leg.motor[i].servo_state = 1;
-                else 
-                    leg.motor[i].servo_state = 0;
+                if (leg.motor[i].servo_cmd == 1 && leg.motor[i].servo_state == 0)
+                {
+                    leg.motor[i].ref_position = leg.motor[i].act_position;      // 清除遗留目标位置
+                    ret = changeOneMotorState(leg, i, OPERATION_ENABLE);
+                    if (ret)
+                        leg.motor[i].servo_state = 1;
+                }
+                else if (leg.motor[i].servo_cmd == 0 && leg.motor[i].servo_state == 1)
+                {
+                    ret = changeOneMotorState(leg, i, SWITCHED_ON);
+                    if (ret)
+                        leg.motor[i].servo_state = 0;
+                }
             }
-            else if (leg.motor[i].servo_cmd == 0)
-            {
-                ret = changeBodyMotorState(leg, i, SWITCHED_ON);
-                if (ret)
-                    leg.motor[i].servo_state = 0;
-            }
-
-            servoall |= leg.motor[i].servo_cmd;
-            if (servoall == 0)
-            {
-                leg.state = DISABLE;
-            }
+            
+            servoCmdAll |= leg.motor[i].servo_cmd;      // 检测全零
+            servoStateAll |= leg.motor[i].servo_state;
+        }
+        if (servoCmdAll == 0 && servoStateAll == 0)
+        {
+            printf("out,\n");
+            leg.state = DISABLE;
         }
         break;
 
@@ -1839,19 +1866,66 @@ void ctrlLegMotor(bodypart &leg)
 void ctrlTrackMotor(trackpart &trc)
 {
     int i, j;
+    int motornum = trc.motornum;
+    uint8_t servoCmdAll = 0;
+    uint8_t servoStateAll = 0;
+    int ret;
 
     switch (trc.state)
     {
+        case DISABLE:       // 整臂去使能状态
+            for (i = 0; i< motornum; i++)
+            {
+                if (trc.motor[i].servo_state == 1)
+                {
+                    ret = changeOneTrackMotorState(trc, i, SWITCHED_ON);
+                    if (ret)
+                        trc.motor[i].servo_state = 0;
+                }
+            }
+        break;
+
+        case IDLE:      // 空闲状态，可以进行任务
+            servoCmdAll = 0;
+            servoStateAll = 0;
+            for (i = 0; i< motornum; i++)
+            {
+                if (trc.motor_use[i] == 1)
+                {
+                    if (trc.motor[i].servo_cmd == 1 && trc.motor[i].servo_state == 0)
+                    {
+                        trc.motor[i].exp_velocity = 0; // 清除遗留目标位置
+                        ret = changeOneTrackMotorState(trc, i, OPERATION_ENABLE);
+                        if (ret)
+                            trc.motor[i].servo_state = 1;
+                    }
+                    else if (trc.motor[i].servo_cmd == 0 && trc.motor[i].servo_state == 1)
+                    {
+                        ret = changeOneTrackMotorState(trc, i, SWITCHED_ON);
+                        if (ret)
+                            trc.motor[i].servo_state = 0;
+                    }
+                }
+                
+                servoCmdAll |= trc.motor[i].servo_cmd;      // 检测全零
+                servoStateAll |= trc.motor[i].servo_state;
+            }
+            if (servoCmdAll == 0 && servoStateAll == 0)
+            {
+                printf("out,\n");
+                trc.state = DISABLE;
+            }
+        break;
     case ON_MOVEL:
 
         break;
     
     case ON_CARMOVE:
-        printf_d(trc.jointGear,4);
+        // printf_d(trc.jointGear,4);
         trc.motor[0].exp_velocity = (trc.chassisVel_cmd[0] - trc.chassisVel_cmd[1] * R1) * trc.jointGear[0];        // trc.chassisVel_cmd 单位 mm，rad/s, 乘以系数 临时 cnt/s
         trc.motor[1].exp_velocity = (trc.chassisVel_cmd[0] - trc.chassisVel_cmd[1] * R2) * trc.jointGear[1];
-        trc.motor[2].exp_velocity = (trc.chassisVel_cmd[0] + trc.chassisVel_cmd[1] * R2) * trc.jointGear[2];
-        trc.motor[3].exp_velocity = (trc.chassisVel_cmd[0] + trc.chassisVel_cmd[1] * R1) * trc.jointGear[3];
+        trc.motor[2].exp_velocity = -(trc.chassisVel_cmd[0] + trc.chassisVel_cmd[1] * R2) * trc.jointGear[2];
+        trc.motor[3].exp_velocity = -(trc.chassisVel_cmd[0] + trc.chassisVel_cmd[1] * R1) * trc.jointGear[3];
         trc.watchdog ++;
         printf("%f,%d\n",trc.motor[0].exp_velocity, int(trc.motor[0].this_send));
         if (trc.watchdog > 5 * 1000)
@@ -1885,9 +1959,11 @@ void ctrlTrackMotor(trackpart &trc)
         {
             trc.motor[i].plan_cnt = 0;
         }
+        
         /********************** 填写指令，等待发送 **********************/ // ！！！！！！！！！
         EC_WRITE_S32(domain[trc.dm_index].domain_pd + trc.motor[i].offset.target_velocity, int(trc.motor[i].this_send));
     }
+    // printf("%f, %f, %f, %f\n", trc.motor[0].exp_velocity, trc.motor[1].exp_velocity, trc.motor[2].exp_velocity, trc.motor[3].exp_velocity);
    
 
 }
@@ -2198,6 +2274,21 @@ void realtime_proc(void *arg)
                         leg.motor[enable_id].servo_cmd = 1;
                     }
                 }
+                else if ( left_right == TRACK)
+                {
+                    track.state = IDLE;
+                    if (enable_id == -1)
+                    {
+                        for ( i =0; i< track.motornum; i++)
+                        {
+                            track.motor[i].servo_cmd = 1;
+                        }
+                    }
+                    else if (enable_id < track.motornum )
+                    {
+                        track.motor[enable_id].servo_cmd = 1;
+                    }
+                }
                 break;
             }
 
@@ -2306,6 +2397,21 @@ void realtime_proc(void *arg)
                     else if (enable_id < leg.motornum )
                     {
                         leg.motor[enable_id].servo_cmd = 0;
+                    }
+                } 
+                else if ( left_right == TRACK)
+                {
+                    track.state = IDLE;
+                    if (enable_id == -1)
+                    {
+                        for ( i =0; i< track.motornum; i++)
+                        {
+                            track.motor[i].servo_cmd = 0;
+                        }
+                    }
+                    else if (enable_id < track.motornum )
+                    {
+                        track.motor[enable_id].servo_cmd = 0;
                     }
                 }
                 break;
@@ -2678,8 +2784,8 @@ void realtime_proc(void *arg)
                     break;
                 if (cmd.param_cnt == 1)
                 {
-                    test_A = 90.0 * DEG2RAD;      // 单位 度
-                    test_T = 5.0;       // 单位 秒， 四分之一周期
+                    test_A = 90.0 * DEG2RAD;      // 单位 度  最大运行范围（峰峰值）
+                    test_T = 5.0;       // 单位 秒， 半周期（峰峰之间的时间）
                 }
                 else if (cmd.param_cnt == 3)
                 {
@@ -2731,7 +2837,7 @@ void realtime_proc(void *arg)
             if (bodypart_use[HEAD])
                 ctrlArmMotor(head);         // 控制头部电机运动
             if (bodypart_use[CHASSIS]){
-                ctrlArmMotor(leg);          // 控制底盘履带电机运动
+                ctrlLegMotor(leg);          // 控制底盘履带电机运动
                 ctrlTrackMotor(track);          // 控制底盘履带电机运动
             }
 
@@ -2859,17 +2965,17 @@ int main(int argc, char *argv[])
     if (bodypart_use[RIGHT] == 1){
         if (!rightarmInit(rightarm, RIGHT_ETHERCAT, right_slave_pos)) 
             return -1;       // 配置右臂从站， 包括7个关节电机和1个力传感器, master0, domain0
-        printf("leftarm init successed...\n");
+        printf("rightarm init successed...\n");
     }
     if (bodypart_use[HEAD] == 1){
         if (!headInit(head, HEAD_ETHERCAT, head_slave_pos)) 
             return -1;       // 配置左臂从站， 包括7个关节电机和1个力传感器, master0, domain0
-        printf("leftarm init successed...\n");
+        printf("head init successed...\n");
     }
     if (bodypart_use[CHASSIS] == 1 ){
         if (!chassisInit(leg, track, CHASSIS_ETHERCAT, track_slave_pos)) 
             return -1;       // 配置左臂从站， 包括7个关节电机和1个力传感器, master0, domain0
-        printf("leftarm init successed...\n");
+        printf("chassis init successed...\n");
     }
     
     // EC_position ft_pos = {0,0};

@@ -156,6 +156,8 @@ typedef struct
 
     uint8_t mode;
     uint8_t first_time;
+    uint8_t servo_cmd;
+    uint8_t servo_state;
 
     int act_velocity; /* actual velocity in cnt */
     int act_position;
@@ -258,7 +260,7 @@ typedef struct
     uint16_t itp_period_times;
 
     // 测试
-    uint8_t motor_use[7];
+    uint8_t motor_use[4];
 
     int state;
 }trackpart;
