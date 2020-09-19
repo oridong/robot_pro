@@ -1043,35 +1043,38 @@ void Jacobian(double jointangle[7], double J[42])
 
     matrixMultiply(rot_, 3, 3, jv0, 3, 7, jv7);
 
+    double jw0[21];
     double jw7[21];
 
-    jw7[0 + 0 * 3] = 0;  	
-	jw7[1 + 0 * 3] = 0; 	
-	jw7[2 + 0 * 3] = 1; 	
+    jw0[0 + 0 * 3] = 0;  	
+	jw0[1 + 0 * 3] = 0; 	
+	jw0[2 + 0 * 3] = 1; 	
 
-	jw7[0 + 1 * 3] = sin(x1);
-	jw7[1 + 1 * 3] = -cos(x1);	
-	jw7[2 + 1 * 3] = 0; 
+	jw0[0 + 1 * 3] = sin(x1);
+	jw0[1 + 1 * 3] = -cos(x1);	
+	jw0[2 + 1 * 3] = 0; 
 
-	jw7[0 + 2 * 3] = -cos(x1)*sin(x2); 	
-	jw7[1 + 2 * 3] = -sin(x1)*sin(x2); 	
-	jw7[2 + 2 * 3] = cos(x2); 
+	jw0[0 + 2 * 3] = -cos(x1)*sin(x2); 	
+	jw0[1 + 2 * 3] = -sin(x1)*sin(x2); 	
+	jw0[2 + 2 * 3] = cos(x2); 
 
-	jw7[0 + 3 * 3] = sin(x1)*cos(x3)+cos(x1)*cos(x2)*sin(x3); 	
-	jw7[1 + 3 * 3] = sin(x1)*cos(x2)*sin(x3)-cos(x1)*cos(x3); 	
-	jw7[2 + 3 * 3] = sin(x2)*sin(x3); 	
+	jw0[0 + 3 * 3] = sin(x1)*cos(x3)+cos(x1)*cos(x2)*sin(x3); 	
+	jw0[1 + 3 * 3] = sin(x1)*cos(x2)*sin(x3)-cos(x1)*cos(x3); 	
+	jw0[2 + 3 * 3] = sin(x2)*sin(x3); 	
 
-	jw7[0 + 4 * 3] = sin(x4)*(sin(x1)*sin(x3)-cos(x1)*cos(x2)*cos(x3))-cos(x1)*sin(x2)*cos(x4); 	
-	jw7[1 + 4 * 3] = -sin(x4)*(cos(x1)*sin(x3)+sin(x1)*cos(x2)*cos(x3))-sin(x1)*sin(x2)*cos(x4); 	
-	jw7[2 + 4 * 3] = cos(x2)*cos(x4)-sin(x2)*cos(x3)*sin(x4); 	
+	jw0[0 + 4 * 3] = sin(x4)*(sin(x1)*sin(x3)-cos(x1)*cos(x2)*cos(x3))-cos(x1)*sin(x2)*cos(x4); 	
+	jw0[1 + 4 * 3] = -sin(x4)*(cos(x1)*sin(x3)+sin(x1)*cos(x2)*cos(x3))-sin(x1)*sin(x2)*cos(x4); 	
+	jw0[2 + 4 * 3] = cos(x2)*cos(x4)-sin(x2)*cos(x3)*sin(x4); 	
 
-	jw7[0 + 5 * 3] = cos(x5)*(sin(x1)*cos(x3)+cos(x1)*cos(x2)*sin(x3))-sin(x5)*(cos(x4)*(sin(x1)*sin(x3)-cos(x1)*cos(x2)*cos(x3))+cos(x1)*sin(x2)*sin(x4));  	
-	jw7[1 + 5 * 3] = sin(x5)*(cos(x4)*(cos(x1)*sin(x3)+sin(x1)*cos(x2)*cos(x3))-sin(x1)*sin(x2)*sin(x4))-cos(x5)*(cos(x1)*cos(x3)-sin(x1)*cos(x2)*sin(x3)); 	
-	jw7[2 + 5 * 3] = sin(x5)*(cos(x2)*sin(x4)+sin(x2)*cos(x3)*cos(x4))+sin(x2)*sin(x3)*cos(x5); 	
+	jw0[0 + 5 * 3] = cos(x5)*(sin(x1)*cos(x3)+cos(x1)*cos(x2)*sin(x3))-sin(x5)*(cos(x4)*(sin(x1)*sin(x3)-cos(x1)*cos(x2)*cos(x3))+cos(x1)*sin(x2)*sin(x4));  	
+	jw0[1 + 5 * 3] = sin(x5)*(cos(x4)*(cos(x1)*sin(x3)+sin(x1)*cos(x2)*cos(x3))-sin(x1)*sin(x2)*sin(x4))-cos(x5)*(cos(x1)*cos(x3)-sin(x1)*cos(x2)*sin(x3)); 	
+	jw0[2 + 5 * 3] = sin(x5)*(cos(x2)*sin(x4)+sin(x2)*cos(x3)*cos(x4))+sin(x2)*sin(x3)*cos(x5); 	
 
-	jw7[0 + 6 * 3] = cos(x6)*(sin(x4)*(sin(x1)*sin(x3)-cos(x1)*cos(x2)*cos(x3))-cos(x1)*sin(x2)*cos(x4))+sin(x6)*(cos(x5)*(cos(x4)*(sin(x1)*sin(x3)-cos(x1)*cos(x2)*cos(x3))+cos(x1)*sin(x2)*sin(x4))+sin(x5)*(sin(x1)*cos(x3)+cos(x1)*cos(x2)*sin(x3))); 	
-	jw7[1 + 6 * 3] = -cos(x6)*(sin(x4)*(cos(x1)*sin(x3)+sin(x1)*cos(x2)*cos(x3))+sin(x1)*sin(x2)*cos(x4))-sin(x6)*(cos(x5)*(cos(x4)*(cos(x1)*sin(x3)+sin(x1)*cos(x2)*cos(x3))-sin(x1)*sin(x2)*sin(x4))+sin(x5)*(cos(x1)*cos(x3)-sin(x1)*cos(x2)*sin(x3))); 	
-	jw7[2 + 6 * 3] = cos(x6)*(cos(x2)*cos(x4)-sin(x2)*cos(x3)*sin(x4))-sin(x6)*(cos(x5)*(cos(x2)*sin(x4)+sin(x2)*cos(x3)*cos(x4))-sin(x2)*sin(x3)*sin(x5)); 
+	jw0[0 + 6 * 3] = cos(x6)*(sin(x4)*(sin(x1)*sin(x3)-cos(x1)*cos(x2)*cos(x3))-cos(x1)*sin(x2)*cos(x4))+sin(x6)*(cos(x5)*(cos(x4)*(sin(x1)*sin(x3)-cos(x1)*cos(x2)*cos(x3))+cos(x1)*sin(x2)*sin(x4))+sin(x5)*(sin(x1)*cos(x3)+cos(x1)*cos(x2)*sin(x3))); 	
+	jw0[1 + 6 * 3] = -cos(x6)*(sin(x4)*(cos(x1)*sin(x3)+sin(x1)*cos(x2)*cos(x3))+sin(x1)*sin(x2)*cos(x4))-sin(x6)*(cos(x5)*(cos(x4)*(cos(x1)*sin(x3)+sin(x1)*cos(x2)*cos(x3))-sin(x1)*sin(x2)*sin(x4))+sin(x5)*(cos(x1)*cos(x3)-sin(x1)*cos(x2)*sin(x3))); 	
+	jw0[2 + 6 * 3] = cos(x6)*(cos(x2)*cos(x4)-sin(x2)*cos(x3)*sin(x4))-sin(x6)*(cos(x5)*(cos(x2)*sin(x4)+sin(x2)*cos(x3)*cos(x4))-sin(x2)*sin(x3)*sin(x5)); 
+
+    matrixMultiply(rot_, 3, 3, jw0, 3, 7, jw7);
 
     for ( i = 0; i < 3; i ++)
     {

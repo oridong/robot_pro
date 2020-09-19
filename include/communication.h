@@ -14,7 +14,7 @@
 # define Nvidia_IP "192.168.50.15" 
 # define Nvidia_PORT 8002
 
-# define ROBOT_IP "192.168.50.17" //"10.1.76.247"//
+# define ROBOT_IP "10.8.0.3" //"10.1.76.247"// 192.168.50.14
 # define ROBOT_PORT 8000
 
 # define RECV_BUF_SIZE 512  // 接收缓存区大小
@@ -24,7 +24,7 @@
 
 # define HEADL 0
 # define CAR_MOVE 1
-# define STOP_ALL 2
+# define STOP_MOVE 2
 # define ENABLE_MOTOR 3
 # define DISABLE_MOTOR 4
 # define MOVEJ 5
@@ -32,6 +32,7 @@
 # define MOVE_FOLLOW 7
 # define FORCE_ENABLE 8
 # define FORCE_DISABLE 9
+# define MOVE_TEST 10
 
 # define NO_RECV -2
 # define ERROR_MATCH -1
@@ -39,15 +40,16 @@
 
 const char cmd_table[][CMD_SIZE] = {
     "headL",
-    "carmove",
-    "stopAll",
+    "carMove",
+    "stopMove",
     "EnMotor",
     "DisMotor",
     "moveJ",
     "moveL",
     "moveFollow",
     "forceEn",
-    "forceDis"
+    "forceDis",
+    "moveTest"
 };
 
 typedef struct{

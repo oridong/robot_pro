@@ -25,10 +25,10 @@ void moveJ(bodypart &arm, double jointFinal[7], double speedRate)
     int i;
     double angleInit[7];
     double T[7];
-    int motornum = arm.motornum;
-    for (i = 0; i< motornum; i++)
+    int motornum = arm.motornum; 
+    for (i = 0; i < motornum; i++)
     {
-        angleInit[i] = arm.motor[i].ref_position/ arm.jointGear[i];
+        angleInit[i] = arm.jointPos[i];
     }
     double sum = 0.0;
             
@@ -37,13 +37,13 @@ void moveJ(bodypart &arm, double jointFinal[7], double speedRate)
     double limit[4] = {M_PI/4, M_PI/4, M_PI/4, speedRate};
 
     // 检查是否在目标位置，如果在直接返回，但是由于电机抖动可能难以进入，需要提高s曲线规划兼容性
-    for (i =0; i< motornum; i++)
+    for (i = 0; i < motornum; i++)
     {
         sum += fabs(arm.jointPos[i] - jointFinal[i]);
     }
     if (sum == 0.0)
     {
-        printf("%f,re send\n", sum);
+        printf("same goal\n");
         arm.state = IDLE;
         return;
     }
@@ -637,6 +637,7 @@ int forceUpdate(bodypart &arm, int type, double dt, int dir_enable[6])
             ft[i] = 0.0;
         }
     }
+    // printf_d(ft, 6);
 
     for (i = 0; i < 6 ; i++)
     {
@@ -740,7 +741,7 @@ int forceUpdate(bodypart &arm, int type, double dt, int dir_enable[6])
         break;
     }
     
-
+    // 保护！！！！！！！！！！！！！！！！
 
     if (angleExpsize[1] == 8){
         for ( i = 0; i < arm.motornum; i++)
