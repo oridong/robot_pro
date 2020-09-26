@@ -122,7 +122,7 @@ typedef struct
 
     // 重要状态量
     uint8_t mode;       // 运行模式，暂时只能固定为位置模式
-    uint8_t servo_state;        // 运行模式，暂时只能固定为位置模式
+    uint16_t servo_state;        // 运行模式，暂时只能固定为位置模式
     uint8_t servo_cmd;
     uint8_t first_time;
 
@@ -215,6 +215,7 @@ typedef struct
     uint8_t motornum;
     double jointPos[7];
     double jointGear[7];
+    double gearRatio[7];
     double startJointAngle[7];
     double offsetAngle[7];
     
