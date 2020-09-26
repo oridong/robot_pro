@@ -76,7 +76,6 @@ void moveJ(bodypart &arm, double jointFinal[7], double speedRate)
     arm.state = ON_MOVEJ;
     
     arm.plan_cnt = 0;
-    arm.itp_period_times = 10;
 }
 
 /*

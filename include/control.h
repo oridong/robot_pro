@@ -55,6 +55,7 @@ typedef struct
     unsigned int DI;
     unsigned int status_word;
     unsigned int ain;
+    unsigned int current;
 } Offset;
 
 /* 力传感器EtherCAT，Pdo地址偏移  */
@@ -82,6 +83,7 @@ typedef struct
     unsigned int DI;
     unsigned int act_velocity;
     unsigned int status_word;
+    unsigned int current;
 } Offset_vel;
 
 
@@ -126,6 +128,7 @@ typedef struct
 
     // 电机变量的所有值均为cnt单位
     int act_position; /* actual position */
+    double act_current; /* actual current */
     int start_pos;
     double exp_position;   /* expect position */
     double ref_position;
@@ -161,6 +164,7 @@ typedef struct
 
     int act_velocity; /* actual velocity in cnt */
     int act_position;
+    double act_current; /* actual current */
     double exp_velocity;   /* expect velocity in cnt */
     double ref_velocity;
     double this_send;

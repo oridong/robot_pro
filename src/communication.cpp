@@ -81,7 +81,7 @@ command robotReceiveCommand(void)
     // printf("\nip:%s ,port:%d\n",cli_ip, ntohs(ctrl_addr.sin_port));
     if (recv_len > 0)
     {
-        //printf("received data(%d):%s", recv_len, recv_buf);
+        // printf("received data(%d):%s\n", recv_len, recv_buf);
 
         z = strlen(recv_buf);
 
