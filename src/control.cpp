@@ -42,8 +42,8 @@
 # define HEAD 2
 # define CHASSIS 3
 
-# define LEFT_ETHERCAT master[1], 1
-# define RIGHT_ETHERCAT master[0], 0
+# define LEFT_ETHERCAT master[0], 0
+# define RIGHT_ETHERCAT master[1], 1
 # define HEAD_ETHERCAT master[1], 1
 # define CHASSIS_ETHERCAT master[1], 1
 /******************* CanOpen控制字 *******************/
@@ -86,10 +86,10 @@
 #define MotorNum 1 // 使用的电机数量
 
 #define ETHERCAT_MAX 4
-int ethercat_use[ETHERCAT_MAX] = {1, 1, 0, 0};
-int bodypart_use[4] = {1, 1, 0, 0};
+int ethercat_use[ETHERCAT_MAX] = {0, 1, 0, 0};
+int bodypart_use[4] = {0, 1, 0, 0};
 int leftarm_use_motor[8] = {1, 1, 1, 1, 0, 1, 1, 1};
-int rightarm_use_motor[8] = {1, 1, 0, 1, 0, 0, 1, 0};
+int rightarm_use_motor[8] = {1, 1, 1, 1, 0, 1, 1, 0};
 // EtherCAT 电机总线地址
 static EC_position left_slave_pos[] = {{0, 0}, {0, 1}, {0, 2}, {0, 3}, {0, 4}, {0, 5}, {0, 6}, {0, 7}}; 
 static EC_position right_slave_pos[] = {{0, 0}, {0, 1}, {0, 2}, {0, 3}, {0, 4}, {0, 5}, {0, 6}, {0, 7}};
@@ -1592,6 +1592,7 @@ void ctrlArmMotor(bodypart &arm)
     // printf("%f\n",arm.motor[0].exp_position);
 
     // printf("%.2f,%.2f,%.2f\n", double(arm.motor[1].act_position)/arm.jointGear[1]*RAD2DEG,  arm.motor[1].exp_position/arm.jointGear[1]*RAD2DEG, arm.motor[i].exp_position + arm.motor[1].start_pos - (arm.startJointAngle[1] - arm.offsetAngle[1]) * arm.jointGear[1]);
+ uint32_t data = 0x30000;
 
     // 电机遍历取值，精插补
     for (i = 0; i < motornum; i++)
@@ -1623,8 +1624,9 @@ void ctrlArmMotor(bodypart &arm)
             EC_WRITE_S32(domain[arm.dm_index].domain_pd + arm.motor[i].offset.target_position, int(arm.motor[i].this_send) + arm.motor[i].start_pos - int((arm.startJointAngle[i] - arm.offsetAngle[i]) * arm.jointGear[i]));
         }
         // }
-
+    EC_WRITE_U32(domain[arm.dm_index].domain_pd + arm.motor[i].offset.DO, data);
     }
+   
 }
 
 /*
@@ -2722,8 +2724,11 @@ void realtime_proc(void *arg)
             /********************** 遍历各身体部位进行控制 **********************/
             if (bodypart_use[LEFT])
                 ctrlArmMotor(leftarm);       // 控制左臂电机运动
-            if (bodypart_use[RIGHT])
+            if (bodypart_use[RIGHT]){
+
                 ctrlArmMotor(rightarm);       // 控制右臂电机运动
+                printf("%d,%d,%d\n",rightarm.motor[0].servo_state, rightarm.motor[1].servo_state, rightarm.motor[2].servo_state);
+            }
             if (bodypart_use[HEAD])
                 ctrlArmMotor(head);         // 控制头部电机运动
             if (bodypart_use[CHASSIS]){
