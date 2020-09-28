@@ -87,7 +87,7 @@
 #define ETHERCAT_MAX 4
 int ethercat_use[ETHERCAT_MAX] = {1, 1, 0, 0};
 int bodypart_use[5] = {1, 1, 0, 0, 0};
-int leftarm_use_motor[8] = {1, 1, 1, 1, 0, 1, 1, 1};
+int leftarm_use_motor[8] = {1, 1, 1, 1, 0, 1, 1, 0};
 int rightarm_use_motor[8] = {1, 1, 1, 1, 0, 1, 1, 0};
 int track_use_motor[4] = {1, 1, 1, 1};
 int leg_use_motor[5] = {0, 1, 1, 1, 1};
@@ -1299,6 +1299,7 @@ void readArmData(bodypart & arm)
         if (arm.motor_use[i] == 1)
         {
             arm.motor[i].act_position = EC_READ_S32(domain[arm.dm_index].domain_pd + arm.motor[i].offset.act_position) - arm.motor[i].start_pos + int((arm.startJointAngle[i] - arm.offsetAngle[i]) * arm.jointGear[i]);
+            arm.motor[i].act_current = (double)EC_READ_S16(domain[arm.dm_index].domain_pd + arm.motor[i].offset.current);
         }
         else
         {
@@ -1447,7 +1448,7 @@ void ctrlArmMotor(bodypart &arm)
     
     switch (arm.state) // 根据不同功能得到motor.ref_position的值，进行不同种类的控制
     {
-        case DISABLE:       // 整臂去使能状态
+        case DISABLE:       // 整臂去使能状态 TODO 去使能先刹车
             for (i = 0; i< motornum; i++)
             {
                 if (arm.motor[i].servo_state == 1)
@@ -1481,11 +1482,14 @@ void ctrlArmMotor(bodypart &arm)
 
                             if (i > 4){             // 67 关节
                                 arm.motor[i].ref_position = arm.motor[i].act_position;      // 清除遗留目标位置
+                                arm.motor[i].plan_cnt = 0;
+                                arm.motor[i].plan.clear();
                                 arm.motor[i].servo_state = 1;
                             }
                             else if (arm.motor[i].servo_state == 0)             // 1-5关节 第一次
                             {
-                                arm.motor[i].ref_position = arm.motor[i].act_position + 1.0 * DEG2RAD * arm.jointGear[i] / arm.gearRatio[i];
+                                arm.motor[i].ref_position = arm.motor[i].act_position - 1.0 * DEG2RAD * arm.jointGear[i] / arm.gearRatio[i];
+                                arm.motor[i].plan_cnt = 0;
                                 printf("%d, %f\n", arm.motor[i].act_position, arm.motor[i].ref_position);
                                 arm.motor[i].servo_state = 2;
                             }
@@ -1499,12 +1503,13 @@ void ctrlArmMotor(bodypart &arm)
 
                         if (arm.motor[i].servo_state == 200)
                         {
-                            arm.motor[i].ref_position = arm.motor[i].act_position - 2.0 * DEG2RAD * arm.jointGear[i] / arm.gearRatio[i];
+                            arm.motor[i].ref_position = arm.motor[i].act_position + 2.0 * DEG2RAD * arm.jointGear[i] / arm.gearRatio[i];
+                            arm.motor[i].plan_cnt = 0;
                             printf("%d, %f\n", arm.motor[i].act_position, arm.motor[i].ref_position);
                             arm.motor[i].servo_state = 201;
                         }
 
-                        if (arm.motor[i].servo_state > 400)
+                        if (arm.motor[i].servo_state > 600)
                         {
                             arm.motor[i].servo_state = 1;
                         }
@@ -2059,7 +2064,9 @@ void check_follow(bodypart & arm, double timeout)
 void realtime_proc(void *arg)
 {
     // 系统时间
-    RTIME now, previous, period;
+    RTIME now, previous, period, start_time;
+    start_time = rt_timer_read();
+
     rt_task_set_periodic(NULL, TM_NOW, RTIME(ctl_period)); // unit :ns
     uint8_t run_state = CONFIG_ELMO;
 
@@ -2145,6 +2152,7 @@ void realtime_proc(void *arg)
                     }
                 }
             }
+
             if (bodypart_use[TRACK]){
                 for (i = 0; i < track.motornum; i++)
                 {
@@ -2946,15 +2954,6 @@ void realtime_proc(void *arg)
         }
         // 实时循环
 
-        static time_t prev_second = 0;
-        struct timeval tv;
-        gettimeofday(&tv, 0);
-        if (tv.tv_sec != prev_second)
-        {
-            // printf( "AKD: Loop time : %ldus\n",(long)period);
-            prev_second = tv.tv_sec;
-        }
-
         // queue process data
         for (i = 0; i< ETHERCAT_MAX; i++)
         {
@@ -2975,6 +2974,16 @@ void realtime_proc(void *arg)
       
         now = rt_timer_read();
         period = (now - previous) / 1000; //us
+
+        static time_t prev_second = 0;
+        struct timeval tv;
+        gettimeofday(&tv, 0);
+        if (tv.tv_sec != prev_second)
+        {
+
+            printf( "AKD: Total time: %ldms, Loop time : %ldus,%d,%f,%f\n", (long)(now - start_time)/1000000, (long)period, rightarm.motor[0].act_position, rightarm.motor[0].exp_position, rightarm.motor[0].act_current);
+            prev_second = tv.tv_sec;
+        }
         // printf( "AKD: Loop time : %ldus\n",(long)period);
 
     }
@@ -2989,7 +2998,7 @@ void realtime_proc(void *arg)
         EC_WRITE_U32(domain[leftarm.dm_index].domain_pd + leftarm.motor[i].offset.DO, brake_output);  // 去使能成功加抱闸
     }
     changeBodyMotorState(rightarm, -1, SWITCHED_ON);
-    uint32_t brake_output = 0x00000;
+    brake_output = 0x00000;
     for (i = 0; i< rightarm.motornum; i++)
     {
         EC_WRITE_U32(domain[rightarm.dm_index].domain_pd + rightarm.motor[i].offset.DO, brake_output);  // 去使能成功加抱闸
