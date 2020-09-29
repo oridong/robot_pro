@@ -618,6 +618,9 @@ int forceUpdate(bodypart &arm, int type, double dt, int dir_enable[6])
 
     double normOfPose = 0.0;
 
+    double force_vlim[6] = {50.0, 50.0, 80.0, 7.0, 7.0, 7.0}; 
+    double force_flim[6] = {200.0, 200.0, 200.0, 50.0, 50.0, 50.0}; 
+
     for ( i = 0; i < arm.motornum; i++)
     {
         angleRef[i] = arm.motor[i].ref_position / arm.jointGear[i];
@@ -630,6 +633,14 @@ int forceUpdate(bodypart &arm, int type, double dt, int dir_enable[6])
         if (arm.fctrl.Switch == 1)
         {
             ft[i] = arm.endft.ft[i];
+
+            // 力超出限幅值，保护
+            if (ft[i] > force_flim[i])
+            {
+                arm.fctrl.Switch = 2;
+                printf("Out of Force Limit!! Stop it\n");
+                return 0;
+            }
         }
         else
         {
@@ -657,9 +668,6 @@ int forceUpdate(bodypart &arm, int type, double dt, int dir_enable[6])
     double rot[9] = {1.0, deltatrans[5], -deltatrans[4],  
                     -deltatrans[5], 1.0, deltatrans[3], 
                     deltatrans[4], -deltatrans[3], 1.0};  
-
-    double force_vlim[6] = {50.0, 50.0, 80.0, 7.0, 7.0, 7.0}; 
-    
 
     switch (type)
     {
@@ -740,8 +748,6 @@ int forceUpdate(bodypart &arm, int type, double dt, int dir_enable[6])
         break;
     }
     
-    // 保护！！！！！！！！！！！！！！！！
-
     if (angleExpsize[1] == 8){
         for ( i = 0; i < arm.motornum; i++)
         {

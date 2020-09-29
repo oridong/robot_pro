@@ -32,6 +32,8 @@
         "type_traits": "cpp",
         "utility": "cpp",
         "iostream": "cpp",
-        "queue": "cpp"
+        "queue": "cpp",
+        "list": "cpp",
+        "system_error": "cpp"
     }
 }

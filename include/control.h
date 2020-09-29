@@ -210,20 +210,23 @@ typedef struct
 /* 身体部件 结构体 */
 typedef struct 
 {
+    // ethercat domain 序号
+    int dm_index;
+
     double T00[16];
     Motor motor[7];
     uint8_t motornum;
     double jointPos[7];
     double jointGear[7];
     double gearRatio[7];
+
     double startJointAngle[7];
     double offsetAngle[7];
 
-    double uplimit[7];
-    double downlimit[7];
-    
-    // ethercat domain 序号
-    int dm_index;
+    // 保护参数
+    double uplimit[7];      // 电机cnt 位置
+    double downlimit[7];    // 电机cnt 位置
+    double speedlimit[7];   // 弧度每秒
 
     // s_plan 相关
     uint16_t plan_cnt;
