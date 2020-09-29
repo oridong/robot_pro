@@ -144,7 +144,7 @@ const double legAbsEncCnt[7] = {-1, -1, -1, -1, -1, 1, 1};
 double leftarmUpLimit[7] = {2.967, 2.094, 2.967, 2.094, 2.967, 2.181, 2.967};
 double leftarmDownLimit[7] = {-2.967, -2.094, -2.967, -2.792, -2.967, -2.181, -2.967};
 double rightarmUpLimit[7] = {2.967, 2.094, 2.967, 2.094, 2.967, 2.181, 2.967};
-double rightarmUpLimit[7] = {-2.967, -2.094, -2.967, -2.792, -2.967, -2.181, -2.967};
+double rightarmDownLimit[7] = {-2.967, -2.094, -2.967, -2.792, -2.967, -2.181, -2.967};
 double headUpLimit[3] = {2.967, 2.967, 2.967};
 double headDownLimit[3] = {-2.967, -2.967, -2.967};
 double legUpLimit[5] = {2.967, 2.967, 2.967, 2.967, 2.967};
@@ -1349,6 +1349,7 @@ void readArmData(bodypart & arm)
             printf("first:%d, act_position:%.2f degree\n", i, arm.motor[i].act_position / arm.jointGear[i] * RAD2DEG);
             arm.motor[i].exp_position = arm.motor[i].act_position;
             arm.motor[i].ref_position = arm.motor[i].act_position;
+            arm.motor[i].last_actposition = arm.motor[i].act_position;
             arm.motor[i].first_time = 1;
         }
         arm.jointPos[i] = (double)(arm.motor[i].act_position) / arm.jointGear[i] ;
@@ -1475,6 +1476,7 @@ void jointProtection(bodypart &arm)
         {
             protect_flag = 1;
         }
+        arm.motor[i].last_actposition = arm.motor[i].act_position;
     }
     if (protect_flag == 1)      // 速度超限幅
     {
@@ -1484,7 +1486,7 @@ void jointProtection(bodypart &arm)
             arm.motor[i].ref_position = arm.motor[i].act_position;
             arm.motor[i].exp_position = arm.motor[i].act_position;
         }
-        printf("detected out of speed limit!!");
+        printf("detected out of speed limit!!\n");
     }
 }
 
@@ -1756,7 +1758,7 @@ void ctrlArmMotor(bodypart &arm)
     // printf("%f\n",arm.motor[0].exp_position);
     // printf("%.2f,%.2f,%.2f\n", double(arm.motor[1].act_position)/arm.jointGear[1]*RAD2DEG,  arm.motor[1].exp_position/arm.jointGear[1]*RAD2DEG, arm.motor[i].exp_position + arm.motor[1].start_pos - (arm.startJointAngle[1] - arm.offsetAngle[1]) * arm.jointGear[1]);
 
-    jointProtection(arm);
+    // jointProtection(arm);
 
     // 电机遍历取值，精插补
     for (i = 0; i < motornum; i++)
@@ -2961,7 +2963,7 @@ void realtime_proc(void *arg)
                     {
                         printf("waiting for exit\n");
                         // rightarm.fctrl.Switch = -1;
-                        lrightarm.fctrl.Switch = 2;       // 快速关闭
+                        rightarm.fctrl.Switch = 2;       // 快速关闭
                     }
                 }
                 
@@ -3070,7 +3072,7 @@ void realtime_proc(void *arg)
         if (tv.tv_sec != prev_second)
         {
 
-            printf( "AKD: Total time: %ldms, Loop time : %ldus,%d,%f,%f\n", (long)(now - start_time)/1000000, (long)period, rightarm.motor[0].act_position, rightarm.motor[0].exp_position, rightarm.motor[0].act_current);
+            // printf( "AKD: Total time: %ldms, Loop time : %ldus,%d,%f,%f\n", (long)(now - start_time)/1000000, (long)period, rightarm.motor[0].act_position, rightarm.motor[0].exp_position, rightarm.motor[0].act_current);
             prev_second = tv.tv_sec;
         }
         // printf( "AKD: Loop time : %ldus\n",(long)period);

@@ -128,6 +128,7 @@ typedef struct
 
     // 电机变量的所有值均为cnt单位
     int act_position; /* actual position */
+    int last_actposition; /* actual position */
     double act_current; /* actual current */
     int start_pos;
     double exp_position;   /* expect position */
