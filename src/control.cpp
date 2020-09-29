@@ -87,8 +87,8 @@
 #define ETHERCAT_MAX 4
 int ethercat_use[ETHERCAT_MAX] = {1, 1, 0, 0};
 int bodypart_use[5] = {1, 1, 0, 0, 0};
-int leftarm_use_motor[8] = {1, 1, 1, 1, 0, 1, 1, 0};
-int rightarm_use_motor[8] = {1, 1, 1, 1, 0, 1, 1, 0};
+int leftarm_use_motor[8] = {1, 1, 1, 1, 1, 1, 1, 1};
+int rightarm_use_motor[8] = {1, 1, 1, 1, 1, 1, 1, 0};
 int track_use_motor[4] = {1, 1, 1, 1};
 int leg_use_motor[5] = {0, 1, 1, 1, 1};
 // EtherCAT 电机总线地址
@@ -114,7 +114,7 @@ const static uint8_t trackJointMotorMode = 8; // 履带关节电机运行模式
 // 插值周期
 const uint8_t armMotoritpTimes[] = {10, 10, 10, 10, 10, 10, 10}; // 在初始化时对电机设置，能够对不同电机进行不同的设置, 默认插值倍数（插值周期与控制周期比）为10
 const uint8_t headMotoritpTimes[] = {10, 10, 10};
-const uint8_t trackMotoritpTimes[] = {70, 70, 70, 70, 10, 50, 50, 50, 50};      // 4履带 + 1腰 + 4关节
+const uint8_t trackMotoritpTimes[] = {70, 70, 70, 70, 50, 50, 50, 50, 50};      // 4履带 + 1腰 + 4关节
 
 const int leftoffsetAngle[7] = {0, 0, 0, 0, 0, 0, 0};        // 单位弧度
 const int rightoffsetAngle[7] = {0, 0, 0, 0, 0, 0, 0};
@@ -123,7 +123,7 @@ const int legoffsetAngle[5] = {0, 0, 0, 0, 0};
 
 const int leftAbsEncDir[7] = {1, 1, 1, 1, 1, -1, -1};
 const int rightAbsEncDir[7] = {1, 1, 1, 1, 1, -1, -1};
-const int headAbsEncDir[7] = {-1, -1, -1, -1, -1, 1, 1};
+const int headAbsEncDir[3] = {-1, -1, -1};
 const int legAbsEncDir[7] = {-1, -1, -1, -1, -1, 1, 1};
 
 const double leftAbsEncCnt[7] = {524288.0, 524288.0, 524288.0, 524288.0, 524288.0, 262144.0, 262144.0};
@@ -131,6 +131,14 @@ const double rightAbsEncCnt[7] = {524288.0, 524288.0, 524288.0, 524288.0, 524288
 const double headAbsEncCnt[7] = {-1, -1, -1, -1, -1, 1, 1};
 const double legAbsEncCnt[7] = {-1, -1, -1, -1, -1, 1, 1};
 
+double leftarmUpLimit[7] = {2.967, 2.094, 2.967, 2.094, 2.967, 2.181, 2.967};
+double leftarmDownLimit[7] = {-2.967, -2.094, -2.967, -2.792, -2.967, -2.181, -2.967};
+double rightarmUpLimit[7] = {2.967, 2.094, 2.967, 2.094, 2.967, 2.181, 2.967};
+double rightarmUpLimit[7] = {-2.967, -2.094, -2.967, -2.792, -2.967, -2.181, -2.967};
+double headUpLimit[3] = {2.967, 2.967, 2.967};
+double headDownLimit[3] = {-2.967, -2.967, -2.967};
+double legUpLimit[5] = {2.967, 2.967, 2.967, 2.967, 2.967};
+double legDownLimit[5] = {-2.967, -2.967, -2.967, -2.967, -2.967};
 
 // 变量声明
 bodypart leftarm;
@@ -343,6 +351,8 @@ int leftarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * motor
         arm.test_T = 5.0;
         arm.test_A = 90.0 * DEG2RAD;
         arm.motor_use[i] = leftarm_use_motor[i];
+        arm.uplimit[i] = leftarmUpLimit[i];
+        arm.downlimit[i] = leftarmDownLimit[i];
 
 
         if (arm.motor_use[i] == 1){
@@ -496,6 +506,8 @@ int rightarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * moto
         arm.test_T = 5.0;
         arm.test_A = 90.0 * DEG2RAD;
         arm.motor_use[i] = rightarm_use_motor[i];
+        arm.uplimit[i] = rightarmUpLimit[i];
+        arm.downlimit[i] = rightarmDownLimit[i];
 
         if (arm.motor_use[i] == 1){
             arm.motor[i].alias = motor_pos[addr].alias;

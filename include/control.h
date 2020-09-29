@@ -218,6 +218,9 @@ typedef struct
     double gearRatio[7];
     double startJointAngle[7];
     double offsetAngle[7];
+
+    double uplimit[7];
+    double downlimit[7];
     
     // ethercat domain 序号
     int dm_index;
