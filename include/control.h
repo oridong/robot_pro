@@ -111,6 +111,15 @@ typedef struct
     double deltaTime;
 }splan;
 
+typedef struct 
+{
+    double k;
+    double c;
+    double m;
+    double acclimit;
+    double vlimit;
+}kdmparam;
+
 /* Elmo位置模式电机结构体 */
 typedef struct 
 {
@@ -132,6 +141,8 @@ typedef struct
     double act_current; /* actual current */
     int start_pos;
     double exp_position;   /* expect position */
+    double exp_position_kdm;   /* expect position */
+    double exp_position_kdm_v;
     double ref_position;
     double this_send;
 
@@ -140,6 +151,7 @@ typedef struct
 
     // s曲线插补
     splan sp;
+    kdmparam kdm;
 
     // 电机位置精插补
     std::vector<double> plan;

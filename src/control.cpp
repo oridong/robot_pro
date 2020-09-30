@@ -43,7 +43,7 @@
 # define LEG 3
 # define TRACK 4
 
-# define LEFT_ETHERCAT master[0], 0
+# define LEFT_ETHERCAT master[1], 1
 # define RIGHT_ETHERCAT master[1], 1
 # define HEAD_ETHERCAT master[1], 1
 # define CHASSIS_ETHERCAT master[3], 3
@@ -86,9 +86,9 @@
 
 // 使用电机或ethercat与否，调试需求
 #define ETHERCAT_MAX 4
-int ethercat_use[ETHERCAT_MAX] = {1, 1, 0, 0};
-int bodypart_use[5] = {1, 1, 0, 0, 0};
-int leftarm_use_motor[8] = {1, 1, 1, 1, 1, 1, 1, 1};
+int ethercat_use[ETHERCAT_MAX] = {0, 1, 0, 0};
+int bodypart_use[5] = {1, 0, 0, 0, 0};
+int leftarm_use_motor[8] = {1, 0, 0, 0, 0, 0, 0, 0};
 int rightarm_use_motor[8] = {1, 1, 1, 1, 1, 1, 1, 0};
 int head_use_motor[3] = {0, 0, 0};
 int track_use_motor[4] = {1, 1, 1, 1};
@@ -101,7 +101,7 @@ static EC_position head_slave_pos[] = {{0, 0}, {0, 1}, {0, 2}};
 static EC_position track_slave_pos[] = {{0, 3}, {0, 1}, {0, 5}, {0, 7}, {0, 8}, {0, 2}, {0, 0}, {0, 4}, {0, 6}};
   
 // 每个电机的减速比参数，编码器cnt/输出角度弧度值
-static double leftarmGear[7] = {160.0 * 20480 * 2.0 / PI, 160.0 * 20480 * 2.0 / PI, 100.0 * 20480 * 2.0 / PI, 100.0 * 20480 * 2.0 / PI, 100.0 * 18000 * 2.0 / PI, 200 * 32768 * 2.0 / PI, 200 * 32768 * 2.0 / PI};
+static double leftarmGear[7] = {1 * 4096 * 2.0 / PI, 160.0 * 20480 * 2.0 / PI, 100.0 * 20480 * 2.0 / PI, 100.0 * 20480 * 2.0 / PI, 100.0 * 18000 * 2.0 / PI, 200 * 32768 * 2.0 / PI, 200 * 32768 * 2.0 / PI};
 static double rightarmGear[7] = {160.0 * 20480 * 2.0 / PI, 160.0 * 20480 * 2.0 / PI, 100.0 * 20480 * 2.0 / PI, 100.0 * 20480 * 2.0 / PI, 100.0 * 18000 * 2.0 / PI, 200 * 32768 * 2.0 / PI, 200 * 32768 * 2.0 / PI};
 static double headGear[3] = {100.0, 100.0, 100.0};
 static double trackGear[9] = {6.0/radius/2.0/PI*524288, 6.0/radius/2.0/PI*524288, 6.0/radius/2.0/PI*524288, 6.0/radius/2.0/PI*524288, 100.0, 160.0 * 30720 * 2.0 /PI, 160.0 * 30720 * 2.0 /PI, 160.0 * 30720 * 2.0 /PI, 160.0 * 30720 * 2.0 /PI};
@@ -160,6 +160,20 @@ double legspeedlimit[5] = {PI/2, PI/2, PI/2, PI/2, PI/2};
 double defaultM[6] = {100, 100, 180, 5, 5, 5};
 double defaultEP[6] = {1.1, 1.1, 1.1, 1.1, 1.1, 1.1};				/*阻尼比*/
 double defaultK[6] = {150, 150, 200, 3, 3, 3};			/*刚度A6D_wn.^2.*A6D_m*/
+
+// kdm fillter
+double leftarm_fillter_k[7] = {50000, 50000, 50000, 50000, 50000, 50000, 50000};
+double leftarm_fillter_m[7] = {1, 1, 1, 1, 1, 1, 1};
+double leftarm_fillter_esp[7] = {1.1, 1.1, 1.1, 1.1, 1.1, 1.1, 1.1};
+double leftarm_fillter_vlimit[7] = {PI / 2, PI / 2, PI / 2, PI / 2, PI / 2, PI / 2, PI / 2};
+double leftarm_fillter_acclimit[7] = {10000 * PI, 10000 * PI, 10000 * PI, 10000 * PI, 10000 * PI, 10000 * PI, 10000 * PI};
+
+// kdm fillter
+double rightarm_fillter_k[7] = {50000, 50000, 50000, 50000, 50000, 50000, 50000};
+double rightarm_fillter_m[7] = {1, 1, 1, 1, 1, 1, 1};
+double rightarm_fillter_esp[7] = {1.4, 1.4, 1.4, 1.4, 1.4, 1.4, 1.4};
+double rightarm_fillter_vlimit[7] = {PI/2, PI/2, PI/2, PI/2, PI/2, PI/2, PI/2};
+double rightarm_fillter_acclimit[7] = {10 * PI, 10 * PI, 10 * PI, 10 * PI, 10 * PI, 10 * PI, 10 * PI};
 
 // 变量声明
 bodypart leftarm;
@@ -349,6 +363,15 @@ int leftarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * motor
 
     for (i = 0; i < arm.motornum; i++)     // ！！！！！！！！！ 只初始化一个电机作为实验 
     {
+        arm.jointGear[i] = leftarmGear[i];
+        arm.gearRatio[i] = leftarmGearRatio[i];
+        arm.offsetAngle[i] = leftoffsetAngle[i];
+        arm.startJointAngle[i] = 0.0;
+        arm.jointPos[i] = 0.0;
+        arm.test_T = 5.0;
+        arm.test_A = 90.0 * DEG2RAD;
+        arm.motor_use[i] = leftarm_use_motor[i];
+
         arm.motor[i].first_time = 0;
         arm.motor[i].exp_position = 0;
         arm.motor[i].act_position = 0;
@@ -358,15 +381,11 @@ int leftarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * motor
         arm.motor[i].itp_period_times = armMotoritpTimes[i];
         arm.motor[i].plan_cnt = 0;
         arm.motor[i].plan_run_time = 0.0f;
-
-        arm.jointGear[i] = leftarmGear[i];
-        arm.gearRatio[i] = leftarmGearRatio[i];
-        arm.offsetAngle[i] = leftoffsetAngle[i];
-        arm.startJointAngle[i] = 0.0;
-        arm.jointPos[i] = 0.0;
-        arm.test_T = 5.0;
-        arm.test_A = 90.0 * DEG2RAD;
-        arm.motor_use[i] = leftarm_use_motor[i];
+        arm.motor[i].kdm.k = leftarm_fillter_k[i];
+        arm.motor[i].kdm.c = 2 * leftarm_fillter_esp[i] *sqrt(leftarm_fillter_k[i] * leftarm_fillter_m[i]);
+        arm.motor[i].kdm.m = leftarm_fillter_m[i];
+        arm.motor[i].kdm.vlimit = leftarm_fillter_vlimit[i] * arm.jointGear[i];
+        arm.motor[i].kdm.acclimit = leftarm_fillter_acclimit[i] * arm.jointGear[i];
 
         // 保护参数
         arm.uplimit[i] = leftarmUpLimit[i];
@@ -440,6 +459,23 @@ int leftarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * motor
                 fprintf(stderr, "Failed to get sdo data.\n");
                 return 0;
             }
+            // =========================================================================== //
+
+            float data3 = 1.5;
+            uint8_t *data2 = (uint8_t *)&data3;
+            data_size = sizeof(data3);
+            if (!ecrt_master_sdo_download(m, arm.motor[i].buspos, 0x303f, 1, data2, data_size, &abort_code)) // 写SDO，0x2F41:0 16-19位配置为4 即可开启模拟二通道输入
+            {
+                fprintf(stderr, "cl change success.\n");
+            }
+
+            data3 = 6.0;
+            uint8_t *data4 = (uint8_t *)&data3;
+            data_size = sizeof(data3);
+            if (!ecrt_master_sdo_download(m, arm.motor[i].buspos, 0x3191, 1, data4, data_size, &abort_code)) // 写SDO，0x2F41:0 16-19位配置为4 即可开启模拟二通道输入
+            {
+                fprintf(stderr, "pl change success.\n");
+            }
 
             // =========================================================================== //
 
@@ -506,6 +542,15 @@ int rightarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * moto
 
     for (i = 0; i < arm.motornum; i++)     // ！！！！！！！！！ 只初始化一个电机作为实验 
     {
+        arm.jointGear[i] = rightarmGear[i];
+        arm.gearRatio[i] = rightarmGearRatio[i];
+        arm.offsetAngle[i] = rightoffsetAngle[i];
+        arm.startJointAngle[i] = 0.0;
+        arm.jointPos[i] = 0.0;
+        arm.test_T = 5.0;
+        arm.test_A = 90.0 * DEG2RAD;
+        arm.motor_use[i] = rightarm_use_motor[i];
+
         arm.motor[i].first_time = 0;
         arm.motor[i].exp_position = 0;
         arm.motor[i].act_position = 0;
@@ -515,15 +560,11 @@ int rightarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * moto
         arm.motor[i].itp_period_times = armMotoritpTimes[i];
         arm.motor[i].plan_cnt = 0;
         arm.motor[i].plan_run_time = 0.0f;
-
-        arm.jointGear[i] = rightarmGear[i];
-        arm.gearRatio[i] = rightarmGearRatio[i];
-        arm.offsetAngle[i] = rightoffsetAngle[i];
-        arm.startJointAngle[i] = 0.0;
-        arm.jointPos[i] = 0.0;
-        arm.test_T = 5.0;
-        arm.test_A = 90.0 * DEG2RAD;
-        arm.motor_use[i] = rightarm_use_motor[i];
+        arm.motor[i].kdm.k = rightarm_fillter_k[i];
+        arm.motor[i].kdm.c = 2 * rightarm_fillter_esp[i] *sqrt(rightarm_fillter_k[i] * rightarm_fillter_m[i]);
+        arm.motor[i].kdm.m = rightarm_fillter_m[i];
+        arm.motor[i].kdm.vlimit = rightarm_fillter_vlimit[i] * arm.jointGear[i];
+        arm.motor[i].kdm.acclimit = rightarm_fillter_acclimit[i] * arm.jointGear[i];
 
         // 保护参数
         arm.uplimit[i] = rightarmUpLimit[i] * arm.jointGear[i];
@@ -1040,6 +1081,44 @@ int ArrayDomainRegs(EC_domain &dm)
 }
 
 /*
+ * 二阶系统滤波器 位置电机
+ */
+void kdmfillter(Motor &m)
+{
+    double acc;
+    double dt;
+    double deltaX;
+    dt = (double)ctl_period / 1e9;
+    deltaX = (double)m.exp_position_kdm - m.exp_position;
+    
+    acc = (-m.kdm.k * deltaX - m.kdm.c * m.exp_position_kdm_v)/m.kdm.m;
+
+    if (acc > m.kdm.acclimit)
+    {
+        acc = m.kdm.acclimit;
+    }
+    else if(acc < -m.kdm.acclimit)
+    {
+        acc = -m.kdm.acclimit;
+    }
+
+    m.exp_position_kdm_v += acc * dt; 
+    
+    if (m.exp_position_kdm_v> m.kdm.vlimit)
+    {
+        m.exp_position_kdm_v= m.kdm.vlimit;
+    }
+    else if (m.exp_position_kdm_v< -m.kdm.vlimit)
+    {
+        m.exp_position_kdm_v= -m.kdm.vlimit;
+    }
+
+    m.exp_position_kdm += m.exp_position_kdm_v * dt + 0.5 * acc * dt *dt;
+
+    // printf("%f, %f\n",m.exp_position_kdm, m.exp_position);
+}
+
+/*
  * 三次多项式插值 位置电机
  */
 int interpolation(Motor &m)
@@ -1052,7 +1131,7 @@ int interpolation(Motor &m)
 
     while (m.plan.size() <= itp_window + 1)
     {
-        m.plan.push_back(m.exp_position);
+        m.plan.push_back(m.exp_position_kdm);
     }
 
     if (m.plan.size() > itp_window + 1) //保持itp_window+1长度的队列
@@ -1476,7 +1555,6 @@ void jointProtection(bodypart &arm)
         {
             protect_flag = 1;
         }
-        arm.motor[i].last_actposition = arm.motor[i].act_position;
     }
     if (protect_flag == 1)      // 速度超限幅
     {
@@ -1549,6 +1627,8 @@ void ctrlArmMotor(bodypart &arm)
                             brake_output = 0x10000;
                             EC_WRITE_U32(domain[arm.dm_index].domain_pd + arm.motor[i].offset.DO, brake_output);  // 上使能成功解除抱闸
 
+                            arm.motor[i].exp_position_kdm_v = 0;
+                            arm.motor[i].exp_position_kdm = arm.motor[i].act_position;
                             if (i > 4){             // 67 关节
                                 arm.motor[i].ref_position = arm.motor[i].act_position;      // 清除遗留目标位置
                                 arm.motor[i].plan_cnt = 0;
@@ -1763,7 +1843,7 @@ void ctrlArmMotor(bodypart &arm)
     // 电机遍历取值，精插补
     for (i = 0; i < motornum; i++)
     {
-        
+        kdmfillter(arm.motor[i]);
         /********************* 电机轨迹精插值规划 **********************/
         if (arm.motor[i].plan_cnt == 0)
         {
@@ -1779,18 +1859,13 @@ void ctrlArmMotor(bodypart &arm)
             arm.motor[i].plan_cnt = 0;
         }
 
-        // if ( i == 6)
-        // {
-        //     printf("%d,%f\n", arm.motor[i].act_position, arm.motor[i].this_send);
-        // }
-        /********************** 填写指令，等待发送 **********************/
-        // if (i == -1){
-        //     // printf("%d\n",int(arm.motor[i].this_send));
-        //     if (arm.state != ON_MOVE_FOLLOW)
         if (arm.motor_use[i] == 1){
+        /********************** 填写指令，等待发送 **********************/
             EC_WRITE_S32(domain[arm.dm_index].domain_pd + arm.motor[i].offset.target_position, int(arm.motor[i].this_send) + arm.motor[i].start_pos - int((arm.startJointAngle[i] - arm.offsetAngle[i]) * arm.jointGear[i]));
         }
-        // }
+    printf("%f, %f, %f\n",arm.motor[i].exp_position_kdm, arm.motor[i].exp_position, arm.motor[i].this_send);
+
+        arm.motor[i].last_actposition = arm.motor[i].act_position;
     }
    
 }
@@ -1880,6 +1955,7 @@ void ctrlHeadMotor(bodypart &head)
     {
         if (head.motor[i].plan_cnt == 0) //规划周期到达，进行插值规划
         {
+            head.motor[i].exp_position_kdm = head.motor[i].exp_position;
             /********************* 电机轨迹精插值运动 **********************/
             interpolation(head.motor[i]);
         }
@@ -1998,6 +2074,7 @@ void ctrlLegMotor(bodypart &leg)
     {
         if (leg.motor[i].plan_cnt == 0) //规划周期到达，进行插值规划
         {
+            leg.motor[i].exp_position_kdm = leg.motor[i].exp_position;
             /********************* 电机轨迹精插值运动 **********************/
             interpolation(leg.motor[i]);
         }
@@ -2131,14 +2208,12 @@ void ctrlTrackMotor(trackpart &trc)
 // 检查follow超时，timeout单位为秒
 void check_follow(bodypart & arm, double timeout)
 {
-    if (arm.state == ON_MOVE_FOLLOW)
+    arm.movefollowCnt ++;
+    if (arm.movefollowCnt >= (int)(timeout / ((double)ctl_period /1e9 )) )
     {
-        arm.movefollowCnt ++;
-        if (arm.movefollowCnt >= (int)(timeout / ((double)ctl_period /1e9 )) )
-        {
-            arm.movefollowCnt = 0;
-            arm.state = IDLE;
-        }
+        arm.movefollowCnt = 0;
+        arm.state = IDLE;
+        printf("leave movefollow state\n");
     }
 }
 
