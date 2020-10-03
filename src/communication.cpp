@@ -12,6 +12,8 @@ char recv_buf[RECV_BUF_SIZE] = "";
 char param_str[PARAM_SIZE] = "";        
 char cmd_str[CMD_SIZE] = "";
 
+static uint8_t state_cnt = 0;
+
 regmatch_t pm[10];
 
 int UDP_init()
@@ -209,33 +211,39 @@ void robotSendFeedback(bodypart la, bodypart ra, bodypart head, bodypart leg, tr
     char motorstate_buf[100] = "";
     uint32_t mstate = 0;
     int i = 0, j = 0;
+
     mstate |= !(la.fctrl.Switch == 0);
     mstate |= !(ra.fctrl.Switch == 0) << 1;
 
     i = 2;
     for (j = 0; j < 7; j++, i ++)
     {
-        mstate |= (la.motor[j].servo_state == 1) << i;
+        if (la.motor_use[j] == 1)
+            mstate |= (la.motor[j].servo_state == 1) << i;
     }
 
     for (j = 0; j < 7; j++, i ++)
     {
-        mstate |= (ra.motor[i].servo_state == 1) << i;
+        if (ra.motor_use[j] == 1)
+            mstate |= (ra.motor[j].servo_state == 1) << i;
     }
 
     for (j = 0; j < 3; j++, i ++)
     {
-        mstate |= (head.motor[i].servo_state == 1) << i;
+        if (head.motor_use[j] == 1)
+            mstate |= (head.motor[j].servo_state == 1) << i;
     }
 
     for (j = 0; j < 5; j++, i ++)
     {
-        mstate |= (leg.motor[i].servo_state == 1) << i;
+        if (leg.motor_use[j] == 1)
+            mstate |= (leg.motor[j].servo_state == 1) << i;
     }
 
     for (j = 0; j < 4; j++, i ++)
     {
-        mstate |= (trc.motor[i].servo_state == 1) << i;
+        if (trc.motor_use[j] == 1)
+        mstate |= (trc.motor[j].servo_state == 1) << i;
     }
 
     mstate |= (1 == 1) <<(i++);        //tool
@@ -256,6 +264,11 @@ void robotSendFeedback(bodypart la, bodypart ra, bodypart head, bodypart leg, tr
     //发送数据
     int len;
     len = sendto(sockfd, send_buf, strlen(send_buf), 0, (struct sockaddr *)&nvidia_addr, sizeof(nvidia_addr));
-    len = sendto(sockfd, motorstate_buf, strlen(motorstate_buf), 0, (struct sockaddr *)&ctrl_addr, sizeof(ctrl_addr));
+    
+    if (state_cnt > 200){
+        state_cnt = 0;
+        len = sendto(sockfd, motorstate_buf, strlen(motorstate_buf), 0, (struct sockaddr *)&ctrl_addr, sizeof(ctrl_addr));
+    }
+    state_cnt ++;
     // printf("len = %d\n", len);
 }

@@ -89,11 +89,11 @@
 #define ETHERCAT_MAX 4
 int ethercat_use[ETHERCAT_MAX] = {1, 0, 0, 0};
 int bodypart_use[5] = {0, 1, 0, 0, 0};
-int leftarm_use_motor[8] = {1, 0, 0, 0, 0, 0, 0, 0};
+int leftarm_use_motor[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 int rightarm_use_motor[8] = {1, 1, 1, 1, 1, 1, 1, 0};
 int head_use_motor[3] = {0, 0, 0};
-int track_use_motor[4] = {1, 1, 1, 1};
-int leg_use_motor[5] = {0, 1, 1, 1, 1};
+int track_use_motor[4] = {0, 0, 0, 0};
+int leg_use_motor[5] = {0, 0, 0, 0, 0};
 
 // EtherCAT 电机总线地址
 static EC_position left_slave_pos[] = {{0, 0}, {0, 1}, {0, 2}, {0, 3}, {0, 4}, {0, 5}, {0, 6}, {0, 7}}; 
@@ -3171,7 +3171,7 @@ void realtime_proc(void *arg)
             // printf( "AKD: Total time: %ldms, Loop time : %ldus,%d,%f,%f\n", (long)(now - start_time)/1000000, (long)period, rightarm.motor[0].act_position, rightarm.motor[0].exp_position, rightarm.motor[0].act_current);
             prev_second = tv.tv_sec;
         }
-        // printf( "AKD: Loop time : %ldus\n",(long)period);
+        printf( "AKD: Loop time : %ldus\n",(long)period);
 
     }
     regfree(&reg);
