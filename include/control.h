@@ -111,6 +111,15 @@ typedef struct
     double deltaTime;
 }splan;
 
+typedef struct 
+{
+    double k;
+    double c;
+    double m;
+    double acclimit;
+    double vlimit;
+}kdmparam;
+
 /* Elmo位置模式电机结构体 */
 typedef struct 
 {
@@ -124,13 +133,17 @@ typedef struct
     uint8_t mode;       // 运行模式，暂时只能固定为位置模式
     uint16_t servo_state;        // 运行模式，暂时只能固定为位置模式
     uint8_t servo_cmd;
+    uint8_t servo_first;
     uint8_t first_time;
 
     // 电机变量的所有值均为cnt单位
     int act_position; /* actual position */
+    int last_actposition; /* actual position */
     double act_current; /* actual current */
     int start_pos;
     double exp_position;   /* expect position */
+    double exp_position_kdm;   /* expect position */
+    double exp_position_kdm_v;
     double ref_position;
     double this_send;
 
@@ -139,6 +152,7 @@ typedef struct
 
     // s曲线插补
     splan sp;
+    kdmparam kdm;
 
     // 电机位置精插补
     std::vector<double> plan;
@@ -210,17 +224,23 @@ typedef struct
 /* 身体部件 结构体 */
 typedef struct 
 {
+    // ethercat domain 序号
+    int dm_index;
+
     double T00[16];
     Motor motor[7];
     uint8_t motornum;
     double jointPos[7];
     double jointGear[7];
     double gearRatio[7];
+    double dir[7];
+
     double startJointAngle[7];
-    double offsetAngle[7];
-    
-    // ethercat domain 序号
-    int dm_index;
+
+    // 保护参数
+    double uplimit[7];      // 电机cnt 位置
+    double downlimit[7];    // 电机cnt 位置
+    double speedlimit[7];   // 弧度每秒
 
     // s_plan 相关
     uint16_t plan_cnt;
