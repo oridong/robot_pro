@@ -235,7 +235,6 @@ typedef struct
     double gearRatio[7];
 
     double startJointAngle[7];
-    double offsetAngle[7];
 
     // 保护参数
     double uplimit[7];      // 电机cnt 位置

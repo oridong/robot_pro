@@ -124,7 +124,7 @@ const uint8_t trackMotoritpTimes[] = {70, 70, 70, 70, 50, 50, 50, 50, 50};      
 
 // 每个关节电机的安装位置偏置
 const double leftoffsetAngle[7] = {0, 0, 0, 0, 0, 0, 0};        // 单位弧度
-const double rightoffsetAngle[7] = {0.1670, -2.1471, 2.1935, -1.0186, -2.3825, 1.5797, -0.1569};
+const double rightoffsetAngle[7] = {3.30862066301,0.994488607786,5.3351224575,2.12301850213,0.759043691692,4.72129015957,2.98468755384};
 const double headoffsetAngle[3] = {0, 0, 0};
 const double legoffsetAngle[5] = {0, 0, 0, 0, 0};
 
@@ -365,7 +365,6 @@ int leftarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * motor
     {
         arm.jointGear[i] = leftarmGear[i];
         arm.gearRatio[i] = leftarmGearRatio[i];
-        arm.offsetAngle[i] = leftoffsetAngle[i];
         arm.startJointAngle[i] = 0.0;
         arm.jointPos[i] = 0.0;
         arm.test_T = 5.0;
@@ -500,7 +499,10 @@ int leftarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * motor
                 arm.startJointAngle[i] = 2 * PI - *((int32_t *)result) / leftAbsEncCnt[i] * 2 * PI;  // ()/262144 * 2 * -PI
             }
             
-            arm.startJointAngle[i] -= PI;
+            arm.startJointAngle[i] -= leftoffsetAngle[i];
+
+            arm.startJointAngle[i] -= floor((arm.startJointAngle[i] + PI)/(2 * PI)) * 2 * PI;
+            
             printf("sdo config OK.%d,abs pos:%f rad,rel pos:%d\n", i, arm.startJointAngle[i], arm.motor[i].start_pos);
         }
 
@@ -538,7 +540,6 @@ int rightarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * moto
     {
         arm.jointGear[i] = rightarmGear[i];
         arm.gearRatio[i] = rightarmGearRatio[i];
-        arm.offsetAngle[i] = rightoffsetAngle[i];
         arm.startJointAngle[i] = 0.0;
         arm.jointPos[i] = 0.0;
         arm.test_T = 5.0;
@@ -654,18 +655,11 @@ int rightarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * moto
             {
                 arm.startJointAngle[i] = 2 * PI - *((int32_t *)result) / rightAbsEncCnt[i] * 2 * PI;  // ()/262144 * 2 * -PI
             }
-            arm.startJointAngle[i] -= PI;
-            
-
-            // if (arm.startJointAngle[i] < -PI)
-            // {
-            //     arm.startJointAngle[i] += 2 * PI;
-            // }
-            // else if (arm.startJointAngle[i] >= PI)
-            // {
-            //     arm.startJointAngle[i] -= 2 * PI;
-            // }
+            arm.startJointAngle[i] -= rightoffsetAngle[i];
+ 
+            arm.startJointAngle[i] -= (double)floor((arm.startJointAngle[i] + PI) / (2 * PI)) * 2 * PI;
             printf("sdo config OK.%d,abs pos:%f rad,rel pos:%d\n", i, arm.startJointAngle[i], arm.motor[i].start_pos);
+
         }
 
     } /* motor 循环*/
@@ -1409,7 +1403,7 @@ void readArmData(bodypart & arm)
     {
         if (arm.motor_use[i] == 1)
         {
-            arm.motor[i].act_position = EC_READ_S32(domain[arm.dm_index].domain_pd + arm.motor[i].offset.act_position) - arm.motor[i].start_pos + int((arm.startJointAngle[i] - arm.offsetAngle[i]) * arm.jointGear[i]);
+            arm.motor[i].act_position = EC_READ_S32(domain[arm.dm_index].domain_pd + arm.motor[i].offset.act_position) - arm.motor[i].start_pos + int((arm.startJointAngle[i]) * arm.jointGear[i]);
             arm.motor[i].act_current = (double)EC_READ_S16(domain[arm.dm_index].domain_pd + arm.motor[i].offset.current);
         }
         else
@@ -1876,7 +1870,7 @@ void ctrlArmMotor(bodypart &arm)
 
         if (arm.motor_use[i] == 1){
         /********************** 填写指令，等待发送 **********************/
-            EC_WRITE_S32(domain[arm.dm_index].domain_pd + arm.motor[i].offset.target_position, int(arm.motor[i].this_send) + arm.motor[i].start_pos - int((arm.startJointAngle[i] - arm.offsetAngle[i]) * arm.jointGear[i]));
+            EC_WRITE_S32(domain[arm.dm_index].domain_pd + arm.motor[i].offset.target_position, int(arm.motor[i].this_send) + arm.motor[i].start_pos - int(arm.startJointAngle[i] * arm.jointGear[i]));
         }
     // printf("%f, %f, %f\n",arm.motor[i].exp_position_kdm, arm.motor[i].exp_position, arm.motor[i].this_send);
 
