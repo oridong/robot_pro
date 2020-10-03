@@ -88,7 +88,7 @@
 #define ETHERCAT_MAX 4
 int ethercat_use[ETHERCAT_MAX] = {1, 0, 0, 0};
 int bodypart_use[5] = {0, 1, 0, 0, 0};
-int leftarm_use_motor[8] = {1, 1, 1, 1, 1, 1, 1, 0};
+int leftarm_use_motor[8] = {1, 0, 0, 0, 0, 0, 0, 0};
 int rightarm_use_motor[8] = {1, 1, 1, 1, 1, 1, 1, 0};
 int head_use_motor[3] = {0, 0, 0};
 int track_use_motor[4] = {1, 1, 1, 1};
@@ -124,15 +124,21 @@ const uint8_t trackMotoritpTimes[] = {70, 70, 70, 70, 50, 50, 50, 50, 50};      
 
 // 每个关节电机的安装位置偏置
 const double leftoffsetAngle[7] = {0, 0, 0, 0, 0, 0, 0};        // 单位弧度
-const double rightoffsetAngle[7] = {3.30862066301,0.994488607786,5.3351224575,2.12301850213,0.759043691692,4.72129015957,2.98468755384};
+const double rightoffsetAngle[7] = {3.30862066301,0.994488607786,5.3351224575,2.12301850213,0.759043691692, 1.561895147609, 3.2984977533441};
 const double headoffsetAngle[3] = {0, 0, 0};
 const double legoffsetAngle[5] = {0, 0, 0, 0, 0};
 
 // 解决相对编码器和绝对编码器的不同invert问题，同向为1，不同向为-1
-const int leftAbsEncDir[7] = {1, 1, 1, 1, 1, -1, -1};
-const int rightAbsEncDir[7] = {1, 1, 1, 1, 1, -1, -1};
-const int headAbsEncDir[3] = {-1, -1, -1};
-const int legAbsEncDir[7] = {-1, -1, -1, -1, -1, 1, 1};
+const int leftAbsRelRelation[7] = {1, 1, 1, 1, 1, -1, -1};
+const int rightAbsRelRelation[7] = {1, 1, 1, 1, 1, -1, -1};
+const int headAbsRelRelation[3] = {-1, -1, -1};
+const int legAbsRelRelation[7] = {-1, -1, -1, -1, -1, 1, 1};
+
+// 相对编码器方向
+const int leftjointDir[7] = {-1, 1, 1, 1, 1, 1, 1};
+const int rightjointDir[7] = {-1, 1, -1, 1, -1, -1, 1};
+const int headjointDir[3] = {-1, -1, -1};
+const int legjointDir[7] = {-1, -1, -1, -1, -1, 1, 1};
 
 // 绝对编码器的一圈的cnt，用于计算初始角度
 const double leftAbsEncCnt[7] = {524288.0, 524288.0, 524288.0, 524288.0, 262144.0, 262144.0, 262144.0};
@@ -386,6 +392,8 @@ int leftarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * motor
         arm.motor[i].kdm.vlimit = leftarm_fillter_vlimit[i] * arm.jointGear[i];
         arm.motor[i].kdm.acclimit = leftarm_fillter_acclimit[i] * arm.jointGear[i];
         arm.motor[i].servo_first = 1;
+        arm.dir[i] = leftjointDir[i];
+
         // 保护参数
         arm.uplimit[i] = leftarmUpLimit[i] * arm.jointGear[i];
         arm.downlimit[i] = leftarmDownLimit[i] * arm.jointGear[i];
@@ -490,16 +498,11 @@ int leftarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * motor
                 fprintf(stderr, "Failed to get sdo data.\n");
                 return 0;
             }
-            if (leftAbsEncDir[i] == 1)
-            {
-                arm.startJointAngle[i] = *((int32_t *)result) / leftAbsEncCnt[i] * 2 * PI;  // ()/262144 * 2 * -PI
-            }
-            else if (leftAbsEncDir[i] == -1)
-            {
-                arm.startJointAngle[i] = 2 * PI - *((int32_t *)result) / leftAbsEncCnt[i] * 2 * PI;  // ()/262144 * 2 * -PI
-            }
-            
+
+            arm.startJointAngle[i] = *((int32_t *)result) / leftAbsEncCnt[i] * 2 * PI;  // ()/262144 * 2 * -PI
             arm.startJointAngle[i] -= leftoffsetAngle[i];
+           
+            arm.startJointAngle[i] = arm.startJointAngle[i] * leftjointDir[i] * leftAbsRelRelation[i];
 
             arm.startJointAngle[i] -= floor((arm.startJointAngle[i] + PI)/(2 * PI)) * 2 * PI;
             
@@ -561,6 +564,7 @@ int rightarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * moto
         arm.motor[i].kdm.vlimit = rightarm_fillter_vlimit[i] * arm.jointGear[i];
         arm.motor[i].kdm.acclimit = rightarm_fillter_acclimit[i] * arm.jointGear[i];
         arm.motor[i].servo_first = 1;
+        arm.dir[i] = rightjointDir[i];
 
         // 保护参数
         arm.uplimit[i] = rightarmUpLimit[i] * arm.jointGear[i];
@@ -647,17 +651,14 @@ int rightarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * moto
                 fprintf(stderr, "Failed to get sdo data.\n");
                 return 0;
             }
-            if (rightAbsEncDir[i] == 1)
-            {
-                arm.startJointAngle[i] = *((int32_t *)result) / rightAbsEncCnt[i] * 2 * PI;  // ()/262144 * 2 * -PI
-            }
-            else if (rightAbsEncDir[i] == -1)
-            {
-                arm.startJointAngle[i] = 2 * PI - *((int32_t *)result) / rightAbsEncCnt[i] * 2 * PI;  // ()/262144 * 2 * -PI
-            }
+
+            arm.startJointAngle[i] = *((int32_t *)result) / rightAbsEncCnt[i] * 2 * PI;  // ()/262144 * 2 * -PI
             arm.startJointAngle[i] -= rightoffsetAngle[i];
- 
-            arm.startJointAngle[i] -= (double)floor((arm.startJointAngle[i] + PI) / (2 * PI)) * 2 * PI;
+           
+            arm.startJointAngle[i] = arm.startJointAngle[i] * rightjointDir[i] * rightAbsRelRelation[i];
+
+            arm.startJointAngle[i] -= floor((arm.startJointAngle[i] + PI)/(2 * PI)) * 2 * PI;
+            
             printf("sdo config OK.%d,abs pos:%f rad,rel pos:%d\n", i, arm.startJointAngle[i], arm.motor[i].start_pos);
 
         }
@@ -1403,7 +1404,7 @@ void readArmData(bodypart & arm)
     {
         if (arm.motor_use[i] == 1)
         {
-            arm.motor[i].act_position = EC_READ_S32(domain[arm.dm_index].domain_pd + arm.motor[i].offset.act_position) - arm.motor[i].start_pos + int((arm.startJointAngle[i]) * arm.jointGear[i]);
+            arm.motor[i].act_position = (int)arm.dir[i] * (EC_READ_S32(domain[arm.dm_index].domain_pd + arm.motor[i].offset.act_position) - arm.motor[i].start_pos) + int((arm.startJointAngle[i]) * arm.jointGear[i]);
             arm.motor[i].act_current = (double)EC_READ_S16(domain[arm.dm_index].domain_pd + arm.motor[i].offset.current);
         }
         else
@@ -1418,6 +1419,7 @@ void readArmData(bodypart & arm)
             printf("first:%d, act_position:%.2f degree\n", i, arm.motor[i].act_position / arm.jointGear[i] * RAD2DEG);
             arm.motor[i].exp_position = arm.motor[i].act_position;
             arm.motor[i].ref_position = arm.motor[i].act_position;
+            arm.motor[i].exp_position_kdm = arm.motor[i].act_position;
             arm.motor[i].last_actposition = arm.motor[i].act_position;
             arm.motor[i].first_time = 1;
         }
@@ -1870,9 +1872,10 @@ void ctrlArmMotor(bodypart &arm)
 
         if (arm.motor_use[i] == 1){
         /********************** 填写指令，等待发送 **********************/
-            EC_WRITE_S32(domain[arm.dm_index].domain_pd + arm.motor[i].offset.target_position, int(arm.motor[i].this_send) + arm.motor[i].start_pos - int(arm.startJointAngle[i] * arm.jointGear[i]));
+            EC_WRITE_S32(domain[arm.dm_index].domain_pd + arm.motor[i].offset.target_position,  (int)(arm.dir[i] * arm.motor[i].this_send) + arm.motor[i].start_pos - int(arm.dir[i] * arm.startJointAngle[i] * arm.jointGear[i]));
+        
+        // printf("%f, %f, %d\n",arm.jointPos[i], arm.motor[i].exp_position, (int)arm.motor[i].this_send + arm.motor[i].start_pos - int(arm.startJointAngle[i] * arm.jointGear[i]));
         }
-    // printf("%f, %f, %f\n",arm.motor[i].exp_position_kdm, arm.motor[i].exp_position, arm.motor[i].this_send);
 
         arm.motor[i].last_actposition = arm.motor[i].act_position;
     }

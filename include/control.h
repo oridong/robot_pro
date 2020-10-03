@@ -233,6 +233,7 @@ typedef struct
     double jointPos[7];
     double jointGear[7];
     double gearRatio[7];
+    double dir[7];
 
     double startJointAngle[7];
 
