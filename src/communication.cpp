@@ -169,20 +169,25 @@ command robotReceiveCommand(void)
 void robotSendFeedback(bodypart la, bodypart ra, bodypart head, bodypart track)
 {
     char send_buf[2048] = "";
-    sprintf(send_buf, " %f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,\n  ", 
-    la.motor[0].exp_position/la.jointGear[0], 
-    la.motor[1].exp_position/la.jointGear[1],la.motor[2].exp_position/la.jointGear[2],
-    la.motor[3].exp_position/la.jointGear[3],la.motor[4].exp_position/la.jointGear[4],
-    la.motor[5].exp_position/la.jointGear[5],la.motor[6].exp_position/la.jointGear[6], 
-    ra.motor[0].this_send/ra.jointGear[0],
-    ra.motor[1].this_send/ra.jointGear[1],ra.motor[2].this_send/ra.jointGear[2],
-    ra.motor[3].this_send/ra.jointGear[3],ra.motor[4].this_send/ra.jointGear[4],
-    ra.motor[5].this_send/ra.jointGear[5],ra.motor[6].this_send/ra.jointGear[6], 
+    sprintf(send_buf, " %f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,\n  ", 
+    la.motor[0].act_position/la.jointGear[0], 
+    la.motor[1].act_position/la.jointGear[1],la.motor[2].act_position/la.jointGear[2],
+    la.motor[3].act_position/la.jointGear[3],la.motor[4].act_position/la.jointGear[4],
+    la.motor[5].act_position/la.jointGear[5],la.motor[6].act_position/la.jointGear[6], 
+    ra.motor[0].act_position/ra.jointGear[0],
+    ra.motor[1].act_position/ra.jointGear[1],ra.motor[2].act_position/ra.jointGear[2],
+    ra.motor[3].act_position/ra.jointGear[3],ra.motor[4].act_position/ra.jointGear[4],
+    ra.motor[5].act_position/ra.jointGear[5],ra.motor[6].act_position/ra.jointGear[6], 
     
-    head.motor[0].this_send/head.jointGear[0], 
-    head.motor[1].this_send/head.jointGear[1], 
-    head.motor[2].this_send/head.jointGear[2], 
-    ra.endft.ft[2]);
+    head.motor[0].act_position/head.jointGear[0], 
+    head.motor[1].act_position/head.jointGear[1], 
+    head.motor[2].act_position/head.jointGear[2], 
+    track.motor[0].act_position/track.jointGear[0],
+    track.motor[2].act_position/track.jointGear[2],
+    track.motor[1].act_position/track.jointGear[1],
+    track.motor[3].act_position/track.jointGear[3],
+    track.motor[4].act_position/track.jointGear[4]
+    );
     send_buf[strlen(send_buf) - 1] = '\0';
 
     // printf("%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,\n  ", 

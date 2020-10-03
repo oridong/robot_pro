@@ -133,6 +133,7 @@ typedef struct
     uint8_t mode;       // 运行模式，暂时只能固定为位置模式
     uint16_t servo_state;        // 运行模式，暂时只能固定为位置模式
     uint8_t servo_cmd;
+    uint8_t servo_first;
     uint8_t first_time;
 
     // 电机变量的所有值均为cnt单位
