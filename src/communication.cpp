@@ -183,11 +183,11 @@ void robotSendFeedback(bodypart la, bodypart ra, bodypart head, bodypart leg, tr
     head.motor[0].act_position/head.jointGear[0], 
     head.motor[1].act_position/head.jointGear[1], 
     head.motor[2].act_position/head.jointGear[2], 
-    track.motor[0].act_position/track.jointGear[0],
-    track.motor[2].act_position/track.jointGear[2],
-    track.motor[1].act_position/track.jointGear[1],
-    track.motor[3].act_position/track.jointGear[3],
-    track.motor[4].act_position/track.jointGear[4]
+    leg.motor[0].act_position/leg.jointGear[0],
+    leg.motor[2].act_position/leg.jointGear[2],
+    leg.motor[1].act_position/leg.jointGear[1],
+    leg.motor[3].act_position/leg.jointGear[3],
+    leg.motor[4].act_position/leg.jointGear[4]
     );
     send_buf[strlen(send_buf) - 1] = '\0';
 
