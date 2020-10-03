@@ -36,6 +36,7 @@
 #include "S_trajectory.h"
 #include "math_tool.h"
 
+# define DUALARM -2
 # define ALL -1
 # define LEFT 0
 # define RIGHT 1
@@ -1368,6 +1369,7 @@ void stopArmMotor(bodypart & arm)
     for (i = 0; i < motornum; i++)
     {
         arm.motor[i].exp_position = arm.motor[i].act_position;
+        arm.motor[i].exp_position_kdm = arm.motor[i].act_position;
         arm.motor[i].ref_position = arm.motor[i].act_position;
         arm.motor[i].plan_cnt = 0;
         // arm.motor[i].plan.clear();
@@ -2401,6 +2403,11 @@ void realtime_proc(void *arg)
                     stopArmMotor(head);
                     stopArmMotor(leg);
                     stopTrackMotor(track);
+                }
+                else if (left_right == DUALARM)
+                {
+                    stopArmMotor(leftarm);
+                    stopArmMotor(rightarm);
                 }
                 else if (left_right == LEFT)
                 {
