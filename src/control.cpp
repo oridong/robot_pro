@@ -99,7 +99,7 @@ int leg_use_motor[5] = {0, 1, 1, 1, 1};
 static EC_position left_slave_pos[] = {{0, 0}, {0, 1}, {0, 2}, {0, 3}, {0, 4}, {0, 5}, {0, 6}, {0, 7}}; 
 static EC_position right_slave_pos[] = {{0, 0}, {0, 1}, {0, 2}, {0, 3}, {0, 4}, {0, 5}, {0, 6}, {0, 7}};
 static EC_position head_slave_pos[] = {{0, 0}, {0, 1}, {0, 2}};
-static EC_position track_slave_pos[] = {{0, 3}, {0, 1}, {0, 5}, {0, 7}, {0, 8}, {0, 2}, {0, 0}, {0, 4}, {0, 6}};
+static EC_position track_slave_pos[] = {{0, 4}, {0, 2}, {0, 6}, {0, 8}, {0, 0}, {0, 3}, {0, 1}, {0, 5}, {0, 7}};
   
 // 每个电机的减速比参数，编码器cnt/输出角度弧度值
 static double leftarmGear[7] = {160.0 * 20480 * 2.0 / PI, 160.0 * 20480 * 2.0 / PI, 100.0 * 20480 * 2.0 / PI, 100.0 * 20480 * 2.0 / PI, 100.0 * 18000 * 2.0 / PI, 200 * 32768 * 2.0 / PI, 200 * 32768 * 2.0 / PI};
@@ -110,7 +110,7 @@ static double trackGear[9] = {6.0/radius/2.0/PI*524288, 6.0/radius/2.0/PI*524288
 // 每个关节电机的机械减速比，用于抱闸解除试动
 static double leftarmGearRatio[7] = {160.0, 160.0, 100.0, 100.0, 100.0, 200.0, 200.0};
 static double rightarmGearRatio[7] = {160.0, 160.0, 100.0, 100.0, 100.0, 200.0, 200.0};
-static double legGearRatio[4] = {160.0, 160.0, 160.0, 160.0};
+static double legGearRatio[5] = {160.0, 160.0, 160.0, 160.0, 160.0};
 
 // 各身体部分的工作模式
 const static uint8_t armMotorMode = 8; // 机械臂电机运行模式
@@ -899,9 +899,9 @@ int chassisInit(bodypart &arm, trackpart & trc, ec_master_t *m, int dm_index, EC
             uint32_t data = 0x40000;
             uint8_t *data_send = (uint8_t *)&data;
             size_t data_size = sizeof(data);
-            if (!ecrt_master_sdo_download(m, arm.motor[i].buspos, 0x2f41, 0, data_send, data_size, &abort_code)) // 写SDO，0x2F41:0 16-19位配置为4 即可开启模拟二通道输入
+            if (ecrt_master_sdo_download(m, arm.motor[i].buspos, 0x2f41, 0, data_send, data_size, &abort_code)) // 写SDO，0x2F41:0 16-19位配置为4 即可开启模拟二通道输入
             {
-                printf("Set App to analog input 2 successed!\n");
+                printf("Set App to analog input 2 failed!\n");
             }
 
             // 3、重读检验是否成功写入
@@ -917,6 +917,7 @@ int chassisInit(bodypart &arm, trackpart & trc, ec_master_t *m, int dm_index, EC
                 return 0;
             }
             arm.motor[i].start_pos = *((uint32_t *)result);
+            printf("%d\n", arm.motor[i].start_pos);
         }
     } /* motor 循环*/
     
@@ -1284,6 +1285,7 @@ uint8_t changeOneTrackMotorState(trackpart &trc, int8_t id, uint8_t state)
     //DS402 CANOpen over EtherCAT status machine
     if ((m->status & 0x004f) == 0x0008) // Fault
     {
+        printf("%d in Fault state\n", id);
         EC_WRITE_U16(domain[dm_index].domain_pd + m->offset.ctrl_word, FaultReset);
         return 0;
     }
@@ -1486,12 +1488,8 @@ void readChassisData(bodypart & leg, trackpart & trc)
     int i;
     for (i = 0; i < leg.motornum; i++)
     {
-        // if (i == 0){
-            leg.motor[i].act_position = EC_READ_S32(domain[leg.dm_index].domain_pd + leg.motor[i].offset.act_position) - leg.motor[i].start_pos;
-        // }
-        // else{
-            // leg.motor[i].act_position = leg.motor[i].this_send;
-        // }
+        leg.motor[i].act_position = EC_READ_S32(domain[leg.dm_index].domain_pd + leg.motor[i].offset.act_position) - leg.motor[i].start_pos;
+       
         leg.motor[i].act_current = (double)EC_READ_S16(domain[leg.dm_index].domain_pd + leg.motor[i].offset.current) ;
         leg.motor[i].ain = EC_READ_U32(domain[leg.dm_index].domain_pd + leg.motor[i].offset.ain);
         if (leg.motor[i].first_time == 0) // 初次进入，记录开机时刻位置作为期望位置
@@ -1502,7 +1500,7 @@ void readChassisData(bodypart & leg, trackpart & trc)
         }
         leg.jointPos[i] = (double)(leg.motor[i].act_position)/ leg.jointGear[i];
     }
-	// printf("%d,%d,%d,%d\n",leg.motor[1].act_position,leg.motor[2].act_position);
+	// printf("%d,%d,%d,%d\n",leg.motor[1].act_position,leg.motor[2].act_position,leg.motor[3].act_position,leg.motor[4].act_position);
 	// printf("%f,%f,%f,%f\n",leg.motor[0].act_current,leg.motor[1].act_current,leg.motor[2].act_current,leg.motor[3].act_current);
 
     for (i = 0; i < trc.motornum; i++)
@@ -1668,7 +1666,6 @@ void ctrlArmMotor(bodypart &arm)
                             arm.motor[i].ref_position = arm.motor[i].act_position + 2.0 * DEG2RAD * arm.jointGear[i] / arm.gearRatio[i];
                             arm.motor[i].plan_cnt = 0;
                             printf("%d, %f\n", arm.motor[i].act_position, arm.motor[i].ref_position);
-                            arm.motor[i].servo_state = 201;
                         }
 
                         if (arm.motor[i].servo_state > 600)
@@ -2023,6 +2020,8 @@ void ctrlLegMotor(bodypart &leg)
                 if (leg.motor[i].servo_cmd == 1 && leg.motor[i].servo_state == 0)
                 {
                     leg.motor[i].exp_position = double(leg.motor[i].act_position);      // 清除遗留目标位置
+                    leg.motor[i].plan_cnt = 0;
+                    leg.motor[i].plan.clear();
                     ret = changeOneMotorState(leg, i, OPERATION_ENABLE);
                     if (ret)
                         leg.motor[i].servo_state = 1;
@@ -2105,9 +2104,10 @@ void ctrlLegMotor(bodypart &leg)
         if (leg.motor_use[i] == 1)
         {
             EC_WRITE_S32(domain[leg.dm_index].domain_pd + leg.motor[i].offset.target_position, int(leg.motor[i].this_send)  + leg.motor[i].start_pos );
+printf("%f\n",leg.motor[i].exp_position);
+
         }
     }
-//printf("%f\n",leg.motor[1].exp_position);
 
 }
 
@@ -2309,9 +2309,9 @@ void realtime_proc(void *arg)
             if (bodypart_use[HEAD]){
                 for (i = 0; i < head.motornum; i++)
                 {
-                    EC_WRITE_U8(domain[rightarm.dm_index].domain_pd + rightarm.motor[i].offset.mode_operation, rightarm.motor[i].mode);
+                    EC_WRITE_U8(domain[head.dm_index].domain_pd + head.motor[i].offset.mode_operation, head.motor[i].mode);
                     if (head.motor_use[i] == 1){
-                        ready &= changeOneMotorState(rightarm, i, SWITCHED_ON);
+                        ready &= changeOneMotorState(head, i, SWITCHED_ON);
                     }
                 }
             }
@@ -3124,12 +3124,14 @@ void realtime_proc(void *arg)
             }
             if (bodypart_use[HEAD])
                 ctrlArmMotor(head);         // 控制头部电机运动
-            if (bodypart_use[LEG])
+            if (bodypart_use[LEG]){
                 ctrlLegMotor(leg);          // 控制底盘履带电机运动
+                printf("%d,%d,%d,%d\n",leg.motor[1].servo_state, leg.motor[2].servo_state, leg.motor[3].servo_state, leg.motor[4].servo_state);
+            }
             if (bodypart_use[TRACK])
                 ctrlTrackMotor(track);          // 控制底盘履带电机运动
 
-            robotSendFeedback(leftarm, rightarm, head, leg);
+            robotSendFeedback(leftarm, rightarm, head, leg, track);
 
             break;
 

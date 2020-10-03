@@ -2,6 +2,7 @@
 
 int sockfd;
 struct sockaddr_in ctrl_addr;
+struct sockaddr_in received_addr;
 struct sockaddr_in nvidia_addr;
 command cmd;
 char error_buf[64];
@@ -63,7 +64,7 @@ command robotReceiveCommand(void)
 {
     int recv_len;
     char cli_ip[INET_ADDRSTRLEN] = ""; //INET_ADDRSTRLEN=16
-    socklen_t cliaddr_len = sizeof(ctrl_addr);
+    socklen_t rcvaddr_len = sizeof(received_addr);
     command cmd;
 
     const size_t nmatch = 3;
@@ -75,7 +76,7 @@ command robotReceiveCommand(void)
 
     // 接受数据
     memset(recv_buf, 0, sizeof(recv_buf));
-    recv_len = recvfrom(sockfd, recv_buf, sizeof(recv_buf), MSG_DONTWAIT, (struct sockaddr *)&ctrl_addr, &cliaddr_len);
+    recv_len = recvfrom(sockfd, recv_buf, sizeof(recv_buf), MSG_DONTWAIT, (struct sockaddr *)&received_addr, &rcvaddr_len);
 
     // inet_ntop(AF_INET, &ctrl_addr.sin_addr, cli_ip, INET_ADDRSTRLEN);   // 转换IP为字符串接口，INET_ADDRSTRLEN为地址长度，为16字符
     // printf("\nip:%s ,port:%d\n",cli_ip, ntohs(ctrl_addr.sin_port));
@@ -166,7 +167,7 @@ command robotReceiveCommand(void)
     
 }
 
-void robotSendFeedback(bodypart la, bodypart ra, bodypart head, bodypart track)
+void robotSendFeedback(bodypart la, bodypart ra, bodypart head, bodypart leg, trackpart trc)
 {
     char send_buf[2048] = "";
     sprintf(send_buf, " %f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,\n  ", 
@@ -182,11 +183,11 @@ void robotSendFeedback(bodypart la, bodypart ra, bodypart head, bodypart track)
     head.motor[0].act_position/head.jointGear[0], 
     head.motor[1].act_position/head.jointGear[1], 
     head.motor[2].act_position/head.jointGear[2], 
-    track.motor[0].act_position/track.jointGear[0],
-    track.motor[2].act_position/track.jointGear[2],
-    track.motor[1].act_position/track.jointGear[1],
-    track.motor[3].act_position/track.jointGear[3],
-    track.motor[4].act_position/track.jointGear[4]
+    leg.motor[0].act_position/leg.jointGear[0],
+    leg.motor[2].act_position/leg.jointGear[2],
+    leg.motor[1].act_position/leg.jointGear[1],
+    leg.motor[3].act_position/leg.jointGear[3],
+    leg.motor[4].act_position/leg.jointGear[4]
     );
     send_buf[strlen(send_buf) - 1] = '\0';
 
@@ -204,8 +205,57 @@ void robotSendFeedback(bodypart la, bodypart ra, bodypart head, bodypart track)
     // head.motor[1].this_send/head.jointGear[1], 
     // head.motor[2].this_send/head.jointGear[2], 
     // la.endft.ft[2]);
+
+    char motorstate_buf[100] = "";
+    uint32_t mstate = 0;
+    int i = 0, j = 0;
+    mstate |= !(la.fctrl.Switch == 0);
+    mstate |= !(ra.fctrl.Switch == 0) << 1;
+
+    i = 2;
+    for (j = 0; j < 7; j++, i ++)
+    {
+        mstate |= (la.motor[j].servo_state == 1) << i;
+    }
+
+    for (j = 0; j < 7; j++, i ++)
+    {
+        mstate |= (ra.motor[i].servo_state == 1) << i;
+    }
+
+    for (j = 0; j < 3; j++, i ++)
+    {
+        mstate |= (head.motor[i].servo_state == 1) << i;
+    }
+
+    for (j = 0; j < 5; j++, i ++)
+    {
+        mstate |= (leg.motor[i].servo_state == 1) << i;
+    }
+
+    for (j = 0; j < 4; j++, i ++)
+    {
+        mstate |= (trc.motor[i].servo_state == 1) << i;
+    }
+
+    mstate |= (1 == 1) <<(i++);        //tool
+    mstate |= (1 == 1) <<(i++);        //tool
+
+    if (mstate == (1<<i) - 1)
+    {
+        mstate |= 1 << i;
+    }
+    else
+    {
+        mstate |= 0 << i;
+    }
+
+    sprintf(motorstate_buf, "%d", mstate);
+    // printf("%x, %d\n", mstate, i);
     
     //发送数据
-    int len = sendto(sockfd, send_buf, strlen(send_buf), 0, (struct sockaddr *)&nvidia_addr, sizeof(nvidia_addr));
+    int len;
+    len = sendto(sockfd, send_buf, strlen(send_buf), 0, (struct sockaddr *)&nvidia_addr, sizeof(nvidia_addr));
+    len = sendto(sockfd, motorstate_buf, strlen(motorstate_buf), 0, (struct sockaddr *)&ctrl_addr, sizeof(ctrl_addr));
     // printf("len = %d\n", len);
 }
