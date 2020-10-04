@@ -66,13 +66,13 @@ void moveJ(bodypart &arm, double jointFinal[7], double speedRate)
     for (i = 0; i < motornum; i++)
     {
         if (c_Tmax != 0.0){
-            arm.motor[i].sp.deltaTime = arm.motor[i].itp_period_times * double(ctl_period) / 1e9 * T[i] / c_Tmax;
+            arm.motor[i].sp.deltaTime = arm.itp_period_times * double(ctl_period) / 1e9 * T[i] / c_Tmax;
         }
         // if (i == 1) printf("%f,%f\n",arm.jointPos[1],jointFinal[1]);
     }
 
     // 改变机械臂状态，并得到规划总次数
-    arm.s_planTimes = (int)(ceil(c_Tmax / 0.01 )); // 向上取整 定为0.01
+    arm.s_planTimes = (int)(ceil(c_Tmax / ((double)arm.itp_period_times * double(ctl_period) / 1e9))); // 向上取整 定为0.01
     arm.state = ON_MOVEJ;
     
     arm.plan_cnt = 0;
