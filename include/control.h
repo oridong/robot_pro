@@ -135,6 +135,7 @@ typedef struct
     uint8_t servo_cmd;
     uint8_t servo_first;
     uint8_t first_time;
+    uint8_t use_brake;
 
     // 电机变量的所有值均为cnt单位
     int act_position; /* actual position */

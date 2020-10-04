@@ -171,8 +171,14 @@ command robotReceiveCommand(void)
 
 void robotSendFeedback(bodypart la, bodypart ra, bodypart head, bodypart leg, trackpart trc)
 {
+    int i = 0, j = 0;
+
+    for (i = 0; i< 6; i++)
+    {
+        ra.endft.ft[i] = 12;
+    }
     char send_buf[2048] = "";
-    sprintf(send_buf, " %f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,\n  ", 
+    sprintf(send_buf, " %.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,\n  ", 
     la.motor[0].act_position/la.jointGear[0], 
     la.motor[1].act_position/la.jointGear[1],la.motor[2].act_position/la.jointGear[2],
     la.motor[3].act_position/la.jointGear[3],la.motor[4].act_position/la.jointGear[4],
@@ -181,7 +187,6 @@ void robotSendFeedback(bodypart la, bodypart ra, bodypart head, bodypart leg, tr
     ra.motor[1].act_position/ra.jointGear[1],ra.motor[2].act_position/ra.jointGear[2],
     ra.motor[3].act_position/ra.jointGear[3],ra.motor[4].act_position/ra.jointGear[4],
     ra.motor[5].act_position/ra.jointGear[5],ra.motor[6].act_position/ra.jointGear[6], 
-    
     head.motor[0].act_position/head.jointGear[0], 
     head.motor[1].act_position/head.jointGear[1], 
     head.motor[2].act_position/head.jointGear[2], 
@@ -189,7 +194,14 @@ void robotSendFeedback(bodypart la, bodypart ra, bodypart head, bodypart leg, tr
     leg.motor[2].act_position/leg.jointGear[2],
     leg.motor[1].act_position/leg.jointGear[1],
     leg.motor[3].act_position/leg.jointGear[3],
-    leg.motor[4].act_position/leg.jointGear[4]
+    leg.motor[4].act_position/leg.jointGear[4],
+    la.motor[0].act_current,la.motor[1].act_current,la.motor[2].act_current,la.motor[3].act_current,la.motor[4].act_current,la.motor[5].act_current,la.motor[6].act_current,
+    ra.motor[0].act_current,ra.motor[1].act_current,ra.motor[2].act_current,ra.motor[3].act_current,ra.motor[4].act_current,ra.motor[5].act_current,ra.motor[6].act_current,
+    head.motor[0].act_current,head.motor[1].act_current,head.motor[2].act_current,
+    leg.motor[0].act_current,leg.motor[2].act_current,leg.motor[1].act_current,leg.motor[3].act_current,leg.motor[4].act_current,
+    trc.motor[0].act_current,trc.motor[1].act_current,trc.motor[2].act_current,trc.motor[3].act_current,
+    la.endft.ft[0],la.endft.ft[1],la.endft.ft[2],la.endft.ft[3],la.endft.ft[4],la.endft.ft[5],
+    ra.endft.ft[0],ra.endft.ft[1],ra.endft.ft[2],ra.endft.ft[3],ra.endft.ft[4],ra.endft.ft[5]
     );
     send_buf[strlen(send_buf) - 1] = '\0';
 
@@ -210,8 +222,8 @@ void robotSendFeedback(bodypart la, bodypart ra, bodypart head, bodypart leg, tr
 
     char motorstate_buf[100] = "";
     uint32_t mstate = 0;
-    int i = 0, j = 0;
 
+    i = 0;
     mstate |= !(la.fctrl.Switch == 0);
     mstate |= !(ra.fctrl.Switch == 0) << 1;
 
