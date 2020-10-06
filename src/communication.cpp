@@ -173,13 +173,70 @@ void robotSendFeedback(bodypart la, bodypart ra, bodypart head, bodypart leg, tr
 {
     int i = 0, j = 0;
 
-    for (i = 0; i< 6; i++)
+    double buf[50];
+    for (i = 0; i< 7; i++)
     {
-        ra.endft.ft[i] = 12;
+        if(la.motor[i].servo_state == 1)
+        {
+            buf[i] = la.motor[i].act_position/la.jointGear[i];
+        }
+        else
+        {
+            buf[i] = la.motor[i].exp_position_kdm/la.jointGear[i];
+        }
     }
+
+    for (i = 0; i< 7; i++)
+    {
+        if(ra.motor[i].servo_state == 1)
+        {
+            buf[i + 7] = ra.motor[i].act_position/ra.jointGear[i];
+        }
+        else
+        {
+            buf[i + 7] = ra.motor[i].exp_position_kdm/ra.jointGear[i];
+        }
+    }
+
+    for (i = 0; i< 3; i++)
+    {
+        if(head.motor[i].servo_state == 1)
+        {
+            buf[i + 14] = head.motor[i].act_position/head.jointGear[i];
+        }
+        else
+        {
+            buf[i + 14] = head.motor[i].exp_position_kdm/head.jointGear[i];
+        }
+    }
+
+    for (i = 0; i< 7; i++)
+    {
+        if(la.motor[i].servo_state == 1)
+        {
+            buf[i] = la.motor[i].act_position/la.jointGear[i];
+        }
+        else
+        {
+            buf[i] = la.motor[i].exp_position_kdm/la.jointGear[i];
+        }
+    }
+
+    for (i = 0; i< 7; i++)
+    {
+        if(la.motor[i].servo_state == 1)
+        {
+            buf[i] = la.motor[i].act_position/la.jointGear[i];
+        }
+        else
+        {
+            buf[i] = la.motor[i].exp_position_kdm/la.jointGear[i];
+        }
+    }
+  
     char send_buf[2048] = "";
     sprintf(send_buf, " %.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,\n  ", 
-    la.motor[0].act_position/la.jointGear[0], 
+    
     la.motor[1].act_position/la.jointGear[1],la.motor[2].act_position/la.jointGear[2],
     la.motor[3].act_position/la.jointGear[3],la.motor[4].act_position/la.jointGear[4],
     la.motor[5].act_position/la.jointGear[5],la.motor[6].act_position/la.jointGear[6], 
