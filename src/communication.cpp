@@ -1,5 +1,7 @@
 #include "communication.h"
 
+#define PI 3.1415926
+
 int sockfd;
 struct sockaddr_in ctrl_addr;
 struct sockaddr_in received_addr;
@@ -247,11 +249,11 @@ void robotSendFeedback(bodypart la, bodypart ra, bodypart head, bodypart leg, tr
     head.motor[0].act_position/head.jointGear[0], 
     head.motor[1].act_position/head.jointGear[1], 
     head.motor[2].act_position/head.jointGear[2], 
-    leg.motor[0].act_position/leg.jointGear[0],
-    leg.motor[2].act_position/leg.jointGear[2],
-    leg.motor[1].act_position/leg.jointGear[1],
-    leg.motor[3].act_position/leg.jointGear[3],
-    leg.motor[4].act_position/leg.jointGear[4],
+    -leg.motor[0].act_position/leg.jointGear[0],
+    -leg.motor[2].act_position/leg.jointGear[2],
+    leg.motor[1].act_position/leg.jointGear[1]-PI,
+    -leg.motor[3].act_position/leg.jointGear[3],
+    -leg.motor[4].act_position/leg.jointGear[4]+PI,
     la.motor[0].act_current,la.motor[1].act_current,la.motor[2].act_current,la.motor[3].act_current,la.motor[4].act_current,la.motor[5].act_current,la.motor[6].act_current,
     ra.motor[0].act_current,ra.motor[1].act_current,ra.motor[2].act_current,ra.motor[3].act_current,ra.motor[4].act_current,ra.motor[5].act_current,ra.motor[6].act_current,
     head.motor[0].act_current,head.motor[1].act_current,head.motor[2].act_current,

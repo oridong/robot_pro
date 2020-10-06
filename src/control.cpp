@@ -85,11 +85,13 @@
  * 变量及参数， 注意：电机参数列表需要大于使用电机数量
  /**************************************************************/
 
+FILE *fp;
+
 // 使用电机或ethercat与否，调试需求
 #define ETHERCAT_MAX 4
 int ethercat_use[ETHERCAT_MAX] = {0, 0, 1, 0};
 int bodypart_use[5] = {0, 0, 0, 1, 1};
-int leftarm_use_motor[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+int leftarm_use_motor[8] = {1, 1, 1, 1, 1, 1, 1, 0};
 int rightarm_use_motor[8] = {1, 1, 1, 1, 1, 1, 1, 0};
 int head_use_motor[3] = {0, 0, 0};
 int track_use_motor[4] = {1, 1, 1, 1};
@@ -123,22 +125,22 @@ const uint8_t trackJointMotorMode = 8; // 履带关节电机运行模式
 const uint8_t armMotoritpTimes[] = {10, 10, 10, 10, 10, 10, 10}; // 在初始化时对电机设置，能够对不同电机进行不同的设置, 默认插值倍数（插值周期与控制周期比）为10
 const uint8_t headMotoritpTimes[] = {10, 10, 10};
 const uint8_t trackMotoritpTimes[] = {70, 70, 70, 70};
-const uint8_t legMotoritpTimes[] = {10, 50, 50, 50, 50};
+const uint8_t legMotoritpTimes[] = {1, 50, 50, 50, 50};
 
 // 每个关节电机的安装位置偏置
-const double leftoffsetAngle[7] = {0, 0, 0, 0, 0, 0, 0};        // 单位弧度
+const double leftoffsetAngle[7] = {5.9651863174665865, 0.123045712266, 1.43972209997, 0.594982742005, 4.422179, 3.798304, 0.882806};        // 单位弧度
 const double rightoffsetAngle[7] = {3.30862066301,0.994488607786,5.3351224575,2.12301850213,0.759043691692, 1.561895147609, 3.2984977533441};
 const double headoffsetAngle[3] = {0, 0, 0};
 const double legoffsetAngle[5] = {0, 0, 0, 0, 0};
 
 // 解决相对编码器和绝对编码器的不同invert问题，同向为1，不同向为-1
-const int leftAbsRelRelation[7] = {1, 1, 1, 1, 1, -1, -1};
+const int leftAbsRelRelation[7] = {1, 1, 1, 1, -1, -1, -1};
 const int rightAbsRelRelation[7] = {1, 1, 1, 1, 1, -1, -1};
 const int headAbsRelRelation[3] = {1, 1, 1};
 const int legAbsRelRelation[5] = {1, 1, 1, 1, 1};
 
 // 相对编码器方向
-const int leftjointDir[7] = {-1, 1, 1, 1, 1, 1, 1};
+const int leftjointDir[7] = {-1, 1, -1, 1, 1, -1, 1};
 const int rightjointDir[7] = {-1, 1, -1, 1, -1, -1, 1};
 const int headjointDir[3] = {1, 1, 1};
 const int trackjointDir[9] = {1, 1, 1, 1};
@@ -201,20 +203,20 @@ double head_fillter_acclimit[3] = {5 * PI, 5 * PI, 5 * PI};
 double leg_fillter_k[5] = {500, 500, 500, 500, 500};
 double leg_fillter_m[5] = {1, 1, 1, 1, 1};
 double leg_fillter_esp[5] = {1.4, 1.4, 1.4, 1.4, 1.4};
-double leg_fillter_vlimit[5] = {PI/3, PI/3, PI/3, PI/3, PI/3};
-double leg_fillter_acclimit[5] = {5 * PI, 5 * PI, 5 * PI, 5 * PI, 5 * PI};
+double leg_fillter_vlimit[5] = {PI/5, PI/3, PI/3, PI/3, PI/3};
+double leg_fillter_acclimit[5] = {2 * PI, 5 * PI, 5 * PI, 5 * PI, 5 * PI};
 
-float left_CL[7] = {1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5};
+float left_CL[7] = {1.5, 3.0, 1.5, 1.5, 1.5, 1.5, 1.5};
 float right_CL[7] = {1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5};
 float head_CL[3] = {1.5, 1.5, 1.5};
 float track_CL[4] = {10.0, 10.0, 10.0, 10.0};
-float leg_CL[5] = {20.0, 20.0, 20.0, 20.0, 20.0};
+float leg_CL[5] = {10.0, 20.0, 20.0, 20.0, 20.0};
 
-float left_PL[7] = {6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0};
+float left_PL[7] = {6.0, 9.0, 6.0, 6.0, 6.0, 6.0, 6.0};
 float right_PL[7] = {6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0};
 float head_PL[3] = {6.0, 6.0, 6.0};
 float track_PL[4] = {20.0, 20.0, 20.0, 20.0};
-float leg_PL[5] = {40.0, 40.0, 40.0, 40.0, 40.0};
+float leg_PL[5] = {20.0, 40.0, 40.0, 40.0, 40.0};
 
 // 变量声明
 bodypart leftarm;
@@ -225,6 +227,7 @@ trackpart track;
 
 double alpha[itp_window] = {0.0f};
 double alpha_sum = 0.0f;
+std::vector<double> fil[10];
 RT_TASK my_task;
 
 /************************************************
@@ -538,7 +541,7 @@ int leftarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * motor
             arm.startJointAngle[i] = *((int32_t *)result) / leftAbsEncCnt[i] * 2 * PI;  // ()/262144 * 2 * -PI
             arm.startJointAngle[i] -= leftoffsetAngle[i];
            
-            arm.startJointAngle[i] = arm.startJointAngle[i] * leftjointDir[i] * leftAbsRelRelation[i];
+            arm.startJointAngle[i] = arm.startJointAngle[i] * double(leftjointDir[i] * leftAbsRelRelation[i]);
 
             arm.startJointAngle[i] -= floor((arm.startJointAngle[i] + PI)/(2 * PI)) * 2 * PI;
             
@@ -877,7 +880,7 @@ int chassisInit(bodypart &arm, trackpart & trc, ec_master_t *m, int dm_index, EC
 
     arm.dm_index = dm_index;        // 记录当前身体部分所使用的domain
     arm.movefollowCnt = 0;
-    arm.itp_period_times = 10;
+    arm.itp_period_times = 1;
     arm.motornum = 5;            
     arm.state = DISABLE;
 
@@ -1084,12 +1087,22 @@ int chassisInit(bodypart &arm, trackpart & trc, ec_master_t *m, int dm_index, EC
             arm.motor[i].start_pos = *((uint32_t *)result);
 
             target_size = 4;
-            if (ecrt_master_sdo_upload(m, arm.motor[i].buspos, 0x2203, 0, result, target_size, &result_size, &abort_code)) // 读SDO， 0x2F41:0 为用户应用配置字
+            if (i == 0)
             {
-                fprintf(stderr, "Failed to get sdo data.\n");
-                return 0;
+                for (j =0; j< 200; j++)
+                {
+                    if (ecrt_master_sdo_upload(m, arm.motor[i].buspos, 0x2203, 0, result, target_size, &result_size, &abort_code)) // 读SDO， 0x2F41:0 为用户应用配置字
+                    {
+                        fprintf(stderr, "Failed to get sdo data.\n");
+                        return 0;
+                    }
+                    arm.startJointAngle[i] = midvfillter((double)(*((uint32_t *)result)), 0, 200);
+                    printf("%d\n",j);
+                }
+                arm.startJointAngle[i] = (arm.startJointAngle[i] - 2000.6) * 0.003158;
             }
-            printf("%d\n",*((uint32_t *)result));
+            
+            // printf("%f\n",arm.startJointAngle[i]);
 
             printf("sdo config OK.%d,abs pos:%f rad,rel pos:%d\n", i, arm.startJointAngle[i], arm.motor[i].start_pos);
         }
@@ -1283,6 +1296,29 @@ void kdmfillter(Motor &m)
     m.exp_position_kdm += m.exp_position_kdm_v * dt + 0.5 * acc * dt *dt;
 
     // printf("%f, %f\n",m.exp_position_kdm, m.exp_position);
+}
+
+/*
+ * 中值滤波器
+ */
+double midvfillter(double data, int index, int size)
+{
+    double sum;
+    int i;
+    while(fil[index].size() <= size)
+    {
+        fil[index].push_back(data);
+    }
+
+    if (fil[index].size() > size)
+    {
+        fil[index].erase(fil[index].begin());
+        for (i = 0; i< fil[index].size(); i++)
+        {
+            sum += fil[index].at(i)/(double)size;
+        }
+        return sum;
+    }
 }
 
 /*
@@ -1662,7 +1698,7 @@ void readChassisData(bodypart & leg, trackpart & trc)
     int i;
     for (i = 0; i < leg.motornum; i++)
     {
-        leg.motor[i].act_position = EC_READ_S32(domain[leg.dm_index].domain_pd + leg.motor[i].offset.act_position) - leg.motor[i].start_pos;
+        leg.motor[i].act_position = EC_READ_S32(domain[leg.dm_index].domain_pd + leg.motor[i].offset.act_position) - leg.motor[i].start_pos + (int)(leg.startJointAngle[i] * leg.jointGear[i]);
        
         leg.motor[i].act_current = (double)EC_READ_S16(domain[leg.dm_index].domain_pd + leg.motor[i].offset.current)/1000.0;
         leg.motor[i].ain = EC_READ_U32(domain[leg.dm_index].domain_pd + leg.motor[i].offset.ain);
@@ -1670,11 +1706,14 @@ void readChassisData(bodypart & leg, trackpart & trc)
         {
             printf("first:%d, act_position:%d\n", i, leg.motor[i].act_position);
             leg.motor[i].exp_position = leg.motor[i].act_position;
+            leg.motor[i].exp_position_kdm = leg.motor[i].act_position;
+            leg.motor[i].exp_position_kdm_v = 0;
             leg.motor[i].first_time = 1;
         }
         leg.jointPos[i] = (double)(leg.motor[i].act_position)/ leg.jointGear[i];
     }
-	// printf("%d\n",leg.motor[0].ain);
+    double a = 0.003158 * (midvfillter(leg.motor[0].ain, 1, 5000) - 2000.6);
+	// printf("%f,%f\n",a, leg.jointPos[0]);
 	// printf("%f,%f,%f,%f\n",leg.motor[0].act_current,leg.motor[1].act_current,leg.motor[2].act_current,leg.motor[3].act_current);
 
     for (i = 0; i < trc.motornum; i++)
@@ -2245,8 +2284,8 @@ void ctrlLegMotor(bodypart &leg)
                             
                             if (leg.motor[i].servo_state == 0) 
                             {
-                                // leg.motor[i].exp_position_kdm_v = 0;
-                                // leg.motor[i].exp_position_kdm = leg.motor[i].act_position;
+                                leg.motor[i].exp_position_kdm_v = 0;
+                                leg.motor[i].exp_position_kdm = leg.motor[i].act_position;
                                 if (leg.motor[i].use_brake == 1)
                                 {
                                     brake_output = 0x10000;
@@ -2350,8 +2389,8 @@ void ctrlLegMotor(bodypart &leg)
 
     for (i = 0; i < motornum; i++)
     {
-        // kdmfillter(leg.motor[i]);
-        leg.motor[i].exp_position_kdm = leg.motor[i].exp_position;
+        kdmfillter(leg.motor[i]);
+        // leg.motor[i].exp_position_kdm = leg.motor[i].exp_position;
         if (leg.motor[i].plan_cnt == 0) //规划周期到达，进行插值规划
         {
             /********************* 电机轨迹精插值运动 **********************/
@@ -2365,14 +2404,17 @@ void ctrlLegMotor(bodypart &leg)
         {
             leg.motor[i].plan_cnt = 0;
         }
-
         /********************** 填写指令，等待发送 **********************/ 
         if (leg.motor_use[i] == 1)
         {
-            EC_WRITE_S32(domain[leg.dm_index].domain_pd + leg.motor[i].offset.target_position, int(leg.motor[i].this_send)  + leg.motor[i].start_pos );
+            EC_WRITE_S32(domain[leg.dm_index].domain_pd + leg.motor[i].offset.target_position, int(leg.motor[i].this_send - leg.startJointAngle[i] * leg.jointGear[i])  + leg.motor[i].start_pos );
+            
             // printf("%f, %d, \n",leg.motor[i].exp_position, int(leg.motor[i].this_send)  + leg.motor[i].start_pos);
         }
     }
+    // fprintf(fp, "%f,%d,%f\n", leg.motor[0].exp_position_kdm,leg.motor[0].act_position,leg.motor[0].exp_position);
+    // printf("%f, %d, \n",leg.motor[0].exp_position_kdm, int(leg.motor[0].this_send - leg.startJointAngle[0] * leg.jointGear[0])  + leg.motor[0].start_pos);
+
 }
 
 /*
@@ -2894,6 +2936,14 @@ void realtime_proc(void *arg)
                             for ( i =0; i< leg.motornum; i++)
                             {
                                 leg.motor[i].servo_cmd = 0;
+                            }
+                        }
+
+                        if (bodypart_use[TRACK]){
+                            track.state = DISABLE;
+                            for ( i =0; i< track.motornum; i++)
+                            {
+                                track.motor[i].servo_cmd = 0;
                             }
                         }
                     }
@@ -3559,7 +3609,12 @@ int main(int argc, char *argv[])
 
     // ==================== 配置UDP 通讯 ======================== //
     UDP_init();
-
+    
+    if ((fp = fopen("test.txt", "w")) == NULL);
+	{
+		printf("文件开始写入\n");
+	}
+	
     // ==================== 配置 EtherCAT 主站 ======================== //
     printf("Requesting master...\n");
     for (i = 0; i< ETHERCAT_MAX; i ++)
@@ -3655,6 +3710,8 @@ int main(int argc, char *argv[])
     }
 
     // ============================== 退出程序 ============================== //
+
+    fclose(fp);
 
     printf("Deleting realtime task...\n");
     rt_task_delete(&my_task);
