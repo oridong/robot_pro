@@ -295,6 +295,7 @@ typedef struct
 int FT_sensor_init(bodypart &arm, ec_master_t * m, int dm_index, EC_position pos);
 void readForceData(bodypart &arm);
 void check_follow(bodypart & arm, double timeout);
+double midvfillter(double data, int index, int size);
 
 
 # endif
