@@ -28,7 +28,7 @@ void moveJ(bodypart &arm, double jointFinal[7], double speedRate)
     int motornum = arm.motornum; 
     for (i = 0; i < motornum; i++)
     {
-        angleInit[i] = arm.jointPos[i];
+        angleInit[i] = arm.motor[i].ref_position/arm.jointGear[i];
     }
     double sum = 0.0;
             
@@ -39,7 +39,7 @@ void moveJ(bodypart &arm, double jointFinal[7], double speedRate)
     // 检查是否在目标位置，如果在直接返回，但是由于电机抖动可能难以进入，需要提高s曲线规划兼容性
     for (i = 0; i < motornum; i++)
     {
-        sum += fabs(arm.jointPos[i] - jointFinal[i]);
+        sum += fabs(angleInit[i] - jointFinal[i]);
     }
     if (sum == 0.0)
     {
@@ -678,7 +678,7 @@ int forceUpdate(bodypart &arm, int type, double dt, int dir_enable[6])
             dtrans[12] *= 1000;
             dtrans[13] *= 1000;
             dtrans[14] *= 1000;
-            ForwardKinematics(angleRef, Tref);
+            ForwardKinematics(angleRef, Tref);  
 
             matrixMultiply(Tref, 4, 4, dtrans, 4, 4, temp);
             beta = FindBeta(angleRef);
@@ -754,6 +754,9 @@ int forceUpdate(bodypart &arm, int type, double dt, int dir_enable[6])
             arm.motor[i].exp_position = angleExp[i] * arm.jointGear[i];
         }
     }
+    // {
+    //     printf("inverse kinematics failed\n");
+    // }
 
     normOfPose = norm(arm.fctrl.totalP, 6);
     if (normOfPose< 1e-3)

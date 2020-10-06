@@ -218,7 +218,7 @@ void CoordinateTrans(double alpha0, double a0, double theta1, double d1, double 
  * 输入----------七个关节角1x7
  * 输出----------末端位姿4x4
  */
-void ForwardKinematics(const double angle[7], double T07[16])
+void ForwardKinematics(const double angle[7], double T0tool[16])
 {
     double T01[16];
     double T12[16];
@@ -237,6 +237,7 @@ void ForwardKinematics(const double angle[7], double T07[16])
     CoordinateTrans(1.5707963267948966, 0.0, angle[5], 0.0, T56);
     CoordinateTrans(-1.5707963267948966, 0.0, angle[6], 0.0, T67);
 
+    double T7tool[16] = {0, 0, -1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 126.0, 0, 0, 1};
     double temp[16];
     double temp2[16];
     matrixMultiply(T01, 4, 4, T12, 4, 4, temp);
@@ -244,9 +245,9 @@ void ForwardKinematics(const double angle[7], double T07[16])
     matrixMultiply(temp2, 4, 4, T34, 4, 4, temp);
     matrixMultiply(temp, 4, 4, T45, 4, 4, temp2);
     matrixMultiply(temp2, 4, 4, T56, 4, 4, temp);
-    matrixMultiply(temp, 4, 4, T67, 4, 4, T07);
+    matrixMultiply(temp, 4, 4, T67, 4, 4, temp2);
+    matrixMultiply(temp2, 4, 4, T7tool, 4, 4, T0tool);
 
-int i;
     // for(i = 0; i< 16; i++){
     //     printf(",%f" + !i, temp2[i]);
     // }
@@ -265,7 +266,7 @@ int i;
  *                 betaEnd：终止β值
  * 输出------------AngleByPlanning：逆运动学求解出的位姿对应关节角1x7
  */
-void InverseKinematics(const double angleInit[7], const double expectPose[16], double betaInit, double betaScanInterval, double betaEnd,
+void InverseKinematics(const double angleInit[7], double expectPose_tool[16], double betaInit, double betaScanInterval, double betaEnd,
                        double angleByPlanning_data[], int angleByPlanning_size[2])
 {
     static const double dv4[3] = {-1.0, 0.0, 0.0};                       // 中间变量，垂直向上向量
@@ -313,9 +314,12 @@ void InverseKinematics(const double angleInit[7], const double expectPose[16], d
     double theta_new[7];
     double b_theta_new[8];
     evaluation_final = 0.0;
+    double expectPose[16];
 
     flagOfFirstCirculation = 0; /* β取值循环的第一次循环标志，用于初始化评价值及最优估计值 */
 
+    double Ttool7[16] = {0, 0, 1, 0, 0, 1, 0, 0, -1, 0, 0, 0, 0, 0, -126.0, 1};
+    matrixMultiply(expectPose_tool, 4, 4, Ttool7, 4, 4, expectPose);
     // ==================================================================//
     // ===================== 逆运动学求解前四个关节值 ===================== //
     // ==================================================================//
@@ -540,11 +544,11 @@ void InverseKinematics(const double angleInit[7], const double expectPose[16], d
                             flag = 1;
                         }
 
-                        if ((length_BW <= -2.181) || (length_BW >= 2.181))
-                        {
-                            /*第六个关节超出范围，请重新选择期望位姿 */
-                            flag = 1;
-                        }
+                        // if ((length_BW <= -2.181) || (length_BW >= 2.181))
+                        // {
+                        //     /*第六个关节超出范围，请重新选择期望位姿 */
+                        //     flag = 1;
+                        // }
 
                         if ((theta_B <= -2.967) || (theta_B >= 2.967))
                         {

@@ -178,82 +178,71 @@ void robotSendFeedback(bodypart la, bodypart ra, bodypart head, bodypart leg, tr
     double buf[50];
     for (i = 0; i< 7; i++)
     {
-        if(la.motor[i].servo_state == 1)
-        {
-            buf[i] = la.motor[i].act_position/la.jointGear[i];
-        }
-        else
-        {
-            buf[i] = la.motor[i].exp_position_kdm/la.jointGear[i];
-        }
+        buf[i] = la.jointPos[i];
     }
 
     for (i = 0; i< 7; i++)
     {
-        if(ra.motor[i].servo_state == 1)
-        {
-            buf[i + 7] = ra.motor[i].act_position/ra.jointGear[i];
-        }
-        else
-        {
-            buf[i + 7] = ra.motor[i].exp_position_kdm/ra.jointGear[i];
-        }
+        buf[i + 7] = ra.jointPos[i];
     }
 
     for (i = 0; i< 3; i++)
     {
-        if(head.motor[i].servo_state == 1)
-        {
-            buf[i + 14] = head.motor[i].act_position/head.jointGear[i];
-        }
-        else
-        {
-            buf[i + 14] = head.motor[i].exp_position_kdm/head.jointGear[i];
-        }
+        buf[i + 14] = head.jointPos[i];
     }
 
-    for (i = 0; i< 7; i++)
+    if(leg.motor[0].servo_state == 1)
     {
-        if(la.motor[i].servo_state == 1)
-        {
-            buf[i] = la.motor[i].act_position/la.jointGear[i];
-        }
-        else
-        {
-            buf[i] = la.motor[i].exp_position_kdm/la.jointGear[i];
-        }
+        buf[17] = -leg.motor[0].act_position/leg.jointGear[0];
+    }
+    else
+    {
+        buf[17] = -leg.motor[0].exp_position_kdm/leg.jointGear[0];
     }
 
-    for (i = 0; i< 7; i++)
+    if(leg.motor[2].servo_state == 1)
     {
-        if(la.motor[i].servo_state == 1)
-        {
-            buf[i] = la.motor[i].act_position/la.jointGear[i];
-        }
-        else
-        {
-            buf[i] = la.motor[i].exp_position_kdm/la.jointGear[i];
-        }
+        buf[18] = -leg.motor[2].act_position/leg.jointGear[2];
     }
-  
+    else
+    {
+        buf[18] = -leg.motor[2].exp_position_kdm/leg.jointGear[2];
+    }
+
+    if(leg.motor[1].servo_state == 1)
+    {
+        buf[19] = leg.motor[1].act_position/leg.jointGear[1]-PI;
+    }
+    else
+    {
+        buf[19] = leg.motor[1].exp_position_kdm/leg.jointGear[1]-PI;
+    }
+
+    if(leg.motor[3].servo_state == 1)
+    {
+        buf[20] = -leg.motor[3].act_position/leg.jointGear[3];
+    }
+    else
+    {
+        buf[20] = -leg.motor[3].exp_position_kdm/leg.jointGear[3];
+    }
+
+    if(leg.motor[4].servo_state == 1)
+    {
+        buf[21] = -leg.motor[4].act_position/leg.jointGear[4] + PI;
+    }
+    else
+    {
+        buf[21] = -leg.motor[4].exp_position_kdm/leg.jointGear[4] + PI;
+    }
+
     char send_buf[2048] = "";
     sprintf(send_buf, " %.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,\n  ", 
     
-    la.motor[1].act_position/la.jointGear[1],la.motor[2].act_position/la.jointGear[2],
-    la.motor[3].act_position/la.jointGear[3],la.motor[4].act_position/la.jointGear[4],
-    la.motor[5].act_position/la.jointGear[5],la.motor[6].act_position/la.jointGear[6], 
-    ra.motor[0].act_position/ra.jointGear[0],
-    ra.motor[1].act_position/ra.jointGear[1],ra.motor[2].act_position/ra.jointGear[2],
-    ra.motor[3].act_position/ra.jointGear[3],ra.motor[4].act_position/ra.jointGear[4],
-    ra.motor[5].act_position/ra.jointGear[5],ra.motor[6].act_position/ra.jointGear[6], 
-    head.motor[0].act_position/head.jointGear[0], 
-    head.motor[1].act_position/head.jointGear[1], 
-    head.motor[2].act_position/head.jointGear[2], 
-    -leg.motor[0].act_position/leg.jointGear[0],
-    -leg.motor[2].act_position/leg.jointGear[2],
-    leg.motor[1].act_position/leg.jointGear[1]-PI,
-    -leg.motor[3].act_position/leg.jointGear[3],
-    -leg.motor[4].act_position/leg.jointGear[4]+PI,
+    buf[0],buf[1],buf[2],buf[3],buf[4],buf[5],buf[6],
+    buf[7],buf[8],buf[9],buf[10],buf[11],buf[12],buf[13],
+    buf[14],buf[15],buf[16],
+    buf[17],buf[18],buf[19],buf[20],buf[21],
     la.motor[0].act_current,la.motor[1].act_current,la.motor[2].act_current,la.motor[3].act_current,la.motor[4].act_current,la.motor[5].act_current,la.motor[6].act_current,
     ra.motor[0].act_current,ra.motor[1].act_current,ra.motor[2].act_current,ra.motor[3].act_current,ra.motor[4].act_current,ra.motor[5].act_current,ra.motor[6].act_current,
     head.motor[0].act_current,head.motor[1].act_current,head.motor[2].act_current,

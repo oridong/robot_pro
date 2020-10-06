@@ -261,7 +261,7 @@ typedef struct
     forceCtrl fctrl;
 
     // 测试
-    uint8_t motor_use[7];
+    uint8_t motor_use[8];
     double test_time;
     double test_A;
     double test_T;

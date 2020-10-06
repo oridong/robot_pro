@@ -89,9 +89,9 @@ FILE *fp;
 
 // 使用电机或ethercat与否，调试需求
 #define ETHERCAT_MAX 4
-int ethercat_use[ETHERCAT_MAX] = {0, 0, 1, 0};
-int bodypart_use[5] = {0, 0, 0, 1, 1};
-int leftarm_use_motor[8] = {1, 1, 1, 1, 1, 1, 1, 0};
+int ethercat_use[ETHERCAT_MAX] = {0, 1, 0, 0};
+int bodypart_use[5] = {1, 0, 0, 0, 0};
+int leftarm_use_motor[8] = {1, 1, 1, 1, 1, 1, 1, 1};
 int rightarm_use_motor[8] = {1, 1, 1, 1, 1, 1, 1, 0};
 int head_use_motor[3] = {0, 0, 0};
 int track_use_motor[4] = {1, 1, 1, 1};
@@ -552,7 +552,7 @@ int leftarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * motor
 
     // 初始化力传感器从站
     arm.motor_use[7] = leftarm_use_motor[7];
-    if (arm.motor_use[7] == 1){
+    if (leftarm_use_motor[7] == 1){
         EC_position ft_pos = {motor_pos[addr].alias, motor_pos[addr].buspos};
         i = FT_sensor_init(arm, m, dm_index, ft_pos);
     }
@@ -1305,6 +1305,7 @@ double midvfillter(double data, int index, int size)
 {
     double sum;
     int i;
+    sum = 0.0;
     while(fil[index].size() <= size)
     {
         fil[index].push_back(data);
@@ -1620,6 +1621,7 @@ void readArmData(bodypart & arm)
         {
             arm.motor[i].act_position = (int)arm.dir[i] * (EC_READ_S32(domain[arm.dm_index].domain_pd + arm.motor[i].offset.act_position) - arm.motor[i].start_pos) + int((arm.startJointAngle[i]) * arm.jointGear[i]);
             arm.motor[i].act_current = (double)EC_READ_S16(domain[arm.dm_index].domain_pd + arm.motor[i].offset.current)/1000.0;
+            arm.motor[i].ain = EC_READ_U32(domain[arm.dm_index].domain_pd + arm.motor[i].offset.ain);
         }
         else
         {
@@ -1627,7 +1629,6 @@ void readArmData(bodypart & arm)
         }
         
         // printf("%d\n", arm.motor[i].act_position);
-        arm.motor[i].ain = EC_READ_U32(domain[arm.dm_index].domain_pd + arm.motor[i].offset.ain);
         if (arm.motor[i].first_time == 0) // 初次进入，记录开机时刻位置作为期望位置
         {
             printf("first:%d, act_position:%.2f degree\n", i, arm.motor[i].act_position / arm.jointGear[i] * RAD2DEG);
@@ -1637,7 +1638,14 @@ void readArmData(bodypart & arm)
             arm.motor[i].last_actposition = arm.motor[i].act_position;
             arm.motor[i].first_time = 1;
         }
-        arm.jointPos[i] = (double)(arm.motor[i].act_position) / arm.jointGear[i] ;
+        if (arm.motor[i].servo_state == 1)
+        {
+            arm.jointPos[i] = (double)(arm.motor[i].act_position) / arm.jointGear[i] ;
+        }
+        else if (arm.motor[i].servo_state == 0)
+        {
+            arm.jointPos[i] = (double)(arm.motor[i].exp_position_kdm) / arm.jointGear[i] ;
+        }
 
         // printf("%f\n", arm.jointPos[i]);
 
@@ -1652,17 +1660,25 @@ void readArmData(bodypart & arm)
 void readForceData(bodypart &arm)
 {
     int dm_index = arm.dm_index;
-    arm.endft.ft[0] = (double)EC_READ_S32(domain[dm_index].domain_pd + arm.endft.offset.Fx)/arm.endft.countsPerForce - arm.endft.offsetft[0];
-    arm.endft.ft[1] = (double)EC_READ_S32(domain[dm_index].domain_pd + arm.endft.offset.Fy)/arm.endft.countsPerForce - arm.endft.offsetft[1];
-    arm.endft.ft[2] = (double)EC_READ_S32(domain[dm_index].domain_pd + arm.endft.offset.Fz)/arm.endft.countsPerForce - arm.endft.offsetft[2];
-    arm.endft.ft[3] = (double)EC_READ_S32(domain[dm_index].domain_pd + arm.endft.offset.Tx)/arm.endft.countsPerTorque- arm.endft.offsetft[3];
-    arm.endft.ft[4] = (double)EC_READ_S32(domain[dm_index].domain_pd + arm.endft.offset.Ty)/arm.endft.countsPerTorque- arm.endft.offsetft[4];
-    arm.endft.ft[5] = (double)EC_READ_S32(domain[dm_index].domain_pd + arm.endft.offset.Tz)/arm.endft.countsPerTorque- arm.endft.offsetft[5];
+    int i = 0;
+    double buf[6];
+    if (arm.motor_use[7] == 1){
+        buf[0] = (double)EC_READ_S32(domain[dm_index].domain_pd + arm.endft.offset.Fx)/arm.endft.countsPerForce - arm.endft.offsetft[0];
+        buf[1] = (double)EC_READ_S32(domain[dm_index].domain_pd + arm.endft.offset.Fy)/arm.endft.countsPerForce - arm.endft.offsetft[1];
+        buf[2] = (double)EC_READ_S32(domain[dm_index].domain_pd + arm.endft.offset.Fz)/arm.endft.countsPerForce - arm.endft.offsetft[2];
+        buf[3] = (double)EC_READ_S32(domain[dm_index].domain_pd + arm.endft.offset.Tx)/arm.endft.countsPerTorque - arm.endft.offsetft[3];
+        buf[4] = (double)EC_READ_S32(domain[dm_index].domain_pd + arm.endft.offset.Ty)/arm.endft.countsPerTorque - arm.endft.offsetft[4];
+        buf[5] = (double)EC_READ_S32(domain[dm_index].domain_pd + arm.endft.offset.Tz)/arm.endft.countsPerTorque - arm.endft.offsetft[5];
+        for (i = 0; i< 6; i++)
+        {
+            arm.endft.ft[i] = midvfillter(buf[i], i + 2, 200);
+        }
 
-    arm.endft.status = EC_READ_U32(domain[dm_index].domain_pd + arm.endft.offset.status1);
-    arm.endft.sampCount = EC_READ_U32(domain[dm_index].domain_pd + arm.endft.offset.status2);
+        arm.endft.status = EC_READ_U32(domain[dm_index].domain_pd + arm.endft.offset.status1);
+        arm.endft.sampCount = EC_READ_U32(domain[dm_index].domain_pd + arm.endft.offset.status2);
+    }
 
-    int i = 0 ;
+    // arm.endft.ft[3] = 2.0; // !!!!!!!!!!!!!!!!!!!
     double sum = 0.0;
     for (i = 0; i < 6; i++)
     {
@@ -1939,6 +1955,8 @@ void ctrlArmMotor(bodypart &arm)
                 TfromRotPos(R, location, pose_line);
 
                 InverseKinematics(arm.jointPos, pose_line, beta_line, 0, beta_line, angle_planned, angle_planned_size);
+                // printf("%f,%f,%f,%f,%f,%f,%f\n", arm.jointPos[0], arm.jointPos[1], arm.jointPos[2], arm.jointPos[3], arm.jointPos[4], arm.jointPos[5], arm.jointPos[6]);
+                printf("%f\n", arm.jointPos[7]);
 
                 if (angle_planned_size[1] == 8)
                 {
@@ -1952,7 +1970,7 @@ void ctrlArmMotor(bodypart &arm)
                 else{
                     printf("Inverse Kinematics Failed\n");
                 }
-                
+                printf("%f,%f,%f,%f,%f,%f,%f\n",angle_planned[0], angle_planned[1], angle_planned[2], angle_planned[3], angle_planned[4], angle_planned[5], angle_planned[6] );
                 arm.s_line.time += arm.s_line.deltaTime;
                 arm.s_beta.time += arm.s_beta.deltaTime;
                 arm.s_equat.time += arm.s_equat.deltaTime;
@@ -1972,7 +1990,7 @@ void ctrlArmMotor(bodypart &arm)
             if (maxAngle > 0.05)
             {
                 printf("may fail when excuting,%f\n", maxAngle);
-                arm.state = IDLE;       // 退出moveL的执行
+                // arm.state = IDLE;       // 退出moveL的执行
             }
 
         break;
@@ -2019,7 +2037,7 @@ void ctrlArmMotor(bodypart &arm)
     }
 
     // 经过力控制的滤波器，对ref_position叠加一个力偏置得到期望电机position
-    int dir_enalbe[6] = {1, 0, 0, 0, 0, 0};     // 力控制笛卡尔空间使能
+    int dir_enalbe[6] = {1, 1, 1, 1, 1, 0};     // 力控制笛卡尔空间使能
     uint8_t forceCtrlType = 0;      // 0 逆运动学直接模式， 1 逆运动学差分模式（卡顿）， 2 雅克比模式（不稳定）
 
     // 力控状态机，由于没有状态切换之间的等待， 所以只使用命令字表示状态
@@ -2055,6 +2073,7 @@ void ctrlArmMotor(bodypart &arm)
             arm.motor[i].exp_position = arm.motor[i].act_position;
         }
         arm.fctrl.Switch = 0;
+        printf("closed forceCtrl\n");
     }
     else if (arm.fctrl.Switch == 0)     // 力控关闭，参考位置直接进行插值
     {
@@ -2096,6 +2115,8 @@ void ctrlArmMotor(bodypart &arm)
 
         arm.motor[i].last_actposition = arm.motor[i].act_position;
     }
+    fprintf(fp, "%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n", arm.motor[0].exp_position_kdm, arm.motor[1].exp_position_kdm, arm.motor[2].exp_position_kdm, arm.motor[3].exp_position_kdm, arm.motor[4].exp_position_kdm, arm.motor[5].exp_position_kdm,arm.endft.ft[0],arm.endft.ft[1],arm.endft.ft[2],arm.endft.ft[3],arm.endft.ft[4],arm.endft.ft[5]);
+
    
 }
 
@@ -2585,18 +2606,19 @@ void realtime_proc(void *arg)
             }
         }
 
-        // readForceData(leftarm);
+        // printf("222\n");
 
         switch (run_state)
         {
 
         case CONFIG_ELMO:
+
             ready = 1;
             if (bodypart_use[LEFT]){
                 for (i = 0; i < leftarm.motornum; i++)
                 {
-                    EC_WRITE_U8(domain[leftarm.dm_index].domain_pd + leftarm.motor[i].offset.mode_operation, leftarm.motor[i].mode);
                     if (leftarm.motor_use[i] == 1){
+                        EC_WRITE_U8(domain[leftarm.dm_index].domain_pd + leftarm.motor[i].offset.mode_operation, leftarm.motor[i].mode);
                         ready &= changeOneMotorState(leftarm, i, SWITCHED_ON);
                     }
                 }
@@ -2605,8 +2627,8 @@ void realtime_proc(void *arg)
             if (bodypart_use[RIGHT]){
                 for (i = 0; i < rightarm.motornum; i++)
                 {
-                    EC_WRITE_U8(domain[rightarm.dm_index].domain_pd + rightarm.motor[i].offset.mode_operation, rightarm.motor[i].mode);
                     if (rightarm.motor_use[i] == 1){
+                        EC_WRITE_U8(domain[rightarm.dm_index].domain_pd + rightarm.motor[i].offset.mode_operation, rightarm.motor[i].mode);
                         ready &= changeOneMotorState(rightarm, i, SWITCHED_ON);
                     }
                 }
@@ -2615,8 +2637,8 @@ void realtime_proc(void *arg)
             if (bodypart_use[HEAD]){
                 for (i = 0; i < head.motornum; i++)
                 {
-                    EC_WRITE_U8(domain[head.dm_index].domain_pd + head.motor[i].offset.mode_operation, head.motor[i].mode);
                     if (head.motor_use[i] == 1){
+                        EC_WRITE_U8(domain[head.dm_index].domain_pd + head.motor[i].offset.mode_operation, head.motor[i].mode);
                         ready &= changeOneMotorState(head, i, SWITCHED_ON);
                     }
                 }
@@ -2625,8 +2647,8 @@ void realtime_proc(void *arg)
             if (bodypart_use[LEG]){
                 for (i = 0; i < leg.motornum; i++)
                 {
-                    EC_WRITE_U8(domain[leg.dm_index].domain_pd + leg.motor[i].offset.mode_operation, leg.motor[i].mode);
                     if (leg.motor_use[i] == 1){
+                        EC_WRITE_U8(domain[leg.dm_index].domain_pd + leg.motor[i].offset.mode_operation, leg.motor[i].mode);
                         ready &= changeOneMotorState(leg, i, SWITCHED_ON);
                     }
                 }
@@ -2635,8 +2657,8 @@ void realtime_proc(void *arg)
             if (bodypart_use[TRACK]){
                 for (i = 0; i < track.motornum; i++)
                 {
-                    EC_WRITE_U8(domain[track.dm_index].domain_pd + track.motor[i].offset.mode_operation, track.motor[i].mode);
                     if (track.motor_use[i] == 1){
+                        EC_WRITE_U8(domain[track.dm_index].domain_pd + track.motor[i].offset.mode_operation, track.motor[i].mode);
                         ready &= changeOneTrackMotorState(track, i, SWITCHED_ON);
                     }
                 }
@@ -2651,7 +2673,7 @@ void realtime_proc(void *arg)
             if (ready)
             {
                 run_state = CONTROL;
-                printf("Elmo Mode Configuration Finished.\n");
+                // printf("Elmo Mode Configuration Finished.\n");
             }
             break;
 
@@ -2677,13 +2699,14 @@ void realtime_proc(void *arg)
         case CONTROL:
 
             /********************** 读取当前位置 更新结构体 **********************/
+            
             if (bodypart_use[LEFT]){
                 readArmData(leftarm);
                 readForceData(leftarm);
             }
             if (bodypart_use[RIGHT]){
                 readArmData(rightarm);
-                readForceData(leftarm);
+                readForceData(rightarm);
             }
             if (bodypart_use[HEAD]){
                 readArmData(head);
@@ -3109,8 +3132,6 @@ void realtime_proc(void *arg)
                 {
                     if (leftarm.state == IDLE)
                     {
-                        printf_d(leftarm.jointPos,7);
-                        printf_d(jointFinal, 7);
                         printf("Busy:in movej\n");
                         moveJ(leftarm, jointFinal, speedRate);
                     }
@@ -3119,6 +3140,7 @@ void realtime_proc(void *arg)
                 {
                     if (rightarm.state == IDLE)
                     {
+                        printf("Busy:in movej\n");
                         moveJ(rightarm, jointFinal, speedRate);
                     }
                 }
@@ -3126,6 +3148,7 @@ void realtime_proc(void *arg)
                 {
                     if (head.state == IDLE)
                     {
+                        printf("Busy:in movej\n");
                         moveJ(head, jointFinal, speedRate);
                     }
                 }
@@ -3133,8 +3156,6 @@ void realtime_proc(void *arg)
                 {
                     if (leg.state == IDLE)
                     {
-                        printf_d(leg.jointPos,5);
-                        printf_d(jointFinal, 5);
                         printf("Busy:in movej\n");
                         moveJ(leg, jointFinal, speedRate);
                     }
@@ -3538,26 +3559,38 @@ void realtime_proc(void *arg)
             // printf( "AKD: Total time: %ldms, Loop time : %ldus,%d,%f,%f\n", (long)(now - start_time)/1000000, (long)period, rightarm.motor[0].act_position, rightarm.motor[0].exp_position, rightarm.motor[0].act_current);
             prev_second = tv.tv_sec;
         }
-        // printf( "AKD: Loop time : %ldus\n",(long)period);
+        printf( "AKD: Loop time : %ldus\n",(long)period);
 
     }
+
     regfree(&reg);
 
     // 状态改变可以生效，但是Switched ON 状态不上伺服
     rt_task_wait_period(NULL);
-    changeBodyMotorState(leftarm, -1, SWITCHED_ON);
+
     uint32_t brake_output = 0x00000;
-    for (i = 0; i< leftarm.motornum; i++)
+    if (bodypart_use[LEFT] == 1)
     {
-        EC_WRITE_U32(domain[leftarm.dm_index].domain_pd + leftarm.motor[i].offset.DO, brake_output);  // 去使能成功加抱闸
-    }
-    changeBodyMotorState(rightarm, -1, SWITCHED_ON);
-    brake_output = 0x00000;
-    for (i = 0; i< rightarm.motornum; i++)
-    {
-        EC_WRITE_U32(domain[rightarm.dm_index].domain_pd + rightarm.motor[i].offset.DO, brake_output);  // 去使能成功加抱闸
+        for (i = 0; i< leftarm.motornum; i++)
+        {
+            if (leftarm.motor_use[i] == 1){
+                changeOneMotorState(leftarm, i, SWITCHED_ON);
+                EC_WRITE_U32(domain[leftarm.dm_index].domain_pd + leftarm.motor[i].offset.DO, brake_output);  // 去使能成功加抱闸
+            }
+        }
     }
 
+    if (bodypart_use[RIGHT] == 1)
+    {
+        for (i = 0; i< rightarm.motornum; i++)
+        {
+            if (leftarm.motor_use[i] == 1){
+                changeOneMotorState(rightarm, i, SWITCHED_ON);
+                EC_WRITE_U32(domain[rightarm.dm_index].domain_pd + rightarm.motor[i].offset.DO, brake_output);  // 去使能成功加抱闸
+            }
+        }
+    }
+   
     // queue process data
     for (i = 0; i< ETHERCAT_MAX; i++)
     {
@@ -3597,7 +3630,7 @@ int main(int argc, char *argv[])
     int i;
 
     /* Perform auto-init of rt_print buffers if the task doesn't do so */
-    rt_print_auto_init(1);
+    // rt_print_auto_init(1);
 
     signal(SIGTERM, signal_handler);
     signal(SIGINT, signal_handler);
@@ -3652,11 +3685,7 @@ int main(int argc, char *argv[])
         printf("chassis init successed...\n");
     }
     
-    // EC_position ft_pos = {0,0};
-    // if (!FT_sensor_init(leftarm, master1, 1, ft_pos)) return -1;
-    // printf("rightarm ftsensor init successed...\n");
-
-    // ==================== 配置 EtherCAT PDO，激活主站，得到domain指针 ======================== //
+    // // ==================== 配置 EtherCAT PDO，激活主站，得到domain指针 ======================== //
     for (i = 0; i< ETHERCAT_MAX; i ++)
     {
         if (ethercat_use[i] == 1)
@@ -3685,7 +3714,7 @@ int main(int argc, char *argv[])
         }
     }
     
-    // ============================== 实时进程 ============================== //
+    // // ============================== 实时进程 ============================== //
     ret = rt_task_create(&my_task, "my_task", 0, 80, T_FPU);
     if (ret < 0)
     {
@@ -3705,7 +3734,7 @@ int main(int argc, char *argv[])
 
     while (!main_exit)
     {
-        //nsleep(2000000);
+        // nsleep(2000000);
         sched_yield();
     }
 

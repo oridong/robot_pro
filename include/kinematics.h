@@ -10,7 +10,7 @@ extern void VectorRot(double n[3], double angle, double R[9]);
 
 extern void CoordinateTrans(double alpha0, double a0, double theta1, double d1, double coordinateTrans[16]);
 extern void ForwardKinematics(const double angle[7], double T07[16]);
-extern void InverseKinematics(const double angleInit[7], const double expectPose[16], double betaInit, double betaScanInterval, double betaEnd,
+extern void InverseKinematics(const double angleInit[7], double expectPose[16], double betaInit, double betaScanInterval, double betaEnd,
                    double angleByPlanning_data[], int angleByPlanning_size[2]);
 extern double FindBeta(const double angle[7]);
 
