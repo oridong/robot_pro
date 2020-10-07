@@ -89,10 +89,10 @@ FILE *fp;
 
 // 使用电机或ethercat与否，调试需求
 #define ETHERCAT_MAX 4
-int ethercat_use[ETHERCAT_MAX] = {0, 1, 0, 0};
-int bodypart_use[5] = {1, 0, 0, 0, 0};
+int ethercat_use[ETHERCAT_MAX] = {1, 1, 0, 0};
+int bodypart_use[5] = {1, 1, 0, 0, 0};
 int leftarm_use_motor[8] = {1, 1, 1, 1, 1, 1, 1, 1};
-int rightarm_use_motor[8] = {1, 1, 1, 1, 1, 1, 1, 0};
+int rightarm_use_motor[8] = {1, 1, 1, 1, 1, 1, 1, 1};
 int head_use_motor[3] = {0, 0, 0};
 int track_use_motor[4] = {1, 1, 1, 1};
 int leg_use_motor[5] = {1, 1, 1, 1, 1};
@@ -129,7 +129,7 @@ const uint8_t legMotoritpTimes[] = {1, 50, 50, 50, 50};
 
 // 每个关节电机的安装位置偏置
 const double leftoffsetAngle[7] = {5.9651863174665865, 0.123045712266, 1.43972209997, 0.594982742005, 4.422179, 3.798304, 0.882806};        // 单位弧度
-const double rightoffsetAngle[7] = {3.30862066301,0.994488607786,5.3351224575,2.12301850213,0.759043691692, 1.561895147609, 3.2984977533441};
+const double rightoffsetAngle[7] = {3.30862066301,0.994488607786,5.3351224575,2.12301850213,0.759043691692, 1.561895147609, 4.083897753344099};
 const double headoffsetAngle[3] = {0, 0, 0};
 const double legoffsetAngle[5] = {0, 0, 0, 0, 0};
 
@@ -174,7 +174,7 @@ double headspeedlimit[3] = {PI/2, PI/2, PI/2};
 double legspeedlimit[5] = {PI/2, PI/2, PI/2, PI/2, PI/2};
 
 // 力控默认参数
-double defaultM[6] = {100, 100, 180, 5, 5, 5};
+double defaultM[6] = {100, 100, 50, 5, 5, 5};
 double defaultEP[6] = {1.1, 1.1, 1.1, 1.1, 1.1, 1.1};				/*阻尼比*/
 double defaultK[6] = {150, 150, 200, 3, 3, 3};			/*刚度A6D_wn.^2.*A6D_m*/
 
@@ -182,15 +182,15 @@ double defaultK[6] = {150, 150, 200, 3, 3, 3};			/*刚度A6D_wn.^2.*A6D_m*/
 double leftarm_fillter_k[7] = {500, 500, 500, 500, 500, 500, 500};
 double leftarm_fillter_m[7] = {1, 1, 1, 1, 1, 1, 1};
 double leftarm_fillter_esp[7] = {1.4, 1.4, 1.4, 1.4, 1.4, 1.4, 1.4};
-double leftarm_fillter_vlimit[7] = {PI / 3, PI / 3, PI / 3, PI / 3, PI / 3, PI / 3, PI / 3};
-double leftarm_fillter_acclimit[7] = {5 * PI, 5 * PI, 5 * PI, 5 * PI, 5 * PI, 5 * PI, 5 * PI};
+double leftarm_fillter_vlimit[7] = {PI / 5, PI / 5, PI / 5, PI / 5, PI / 5, PI / 5, PI / 5};
+double leftarm_fillter_acclimit[7] = {3 * PI, 3 * PI, 3 * PI, 3 * PI, 3 * PI, 3 * PI, 3 * PI};
 
 // kdm fillter
 double rightarm_fillter_k[7] = {500, 500, 500, 500, 500, 500, 500};
 double rightarm_fillter_m[7] = {1, 1, 1, 1, 1, 1, 1};
 double rightarm_fillter_esp[7] = {1.4, 1.4, 1.4, 1.4, 1.4, 1.4, 1.4};
-double rightarm_fillter_vlimit[7] = {PI/3, PI/3, PI/3, PI/3, PI/3, PI/3, PI/3};
-double rightarm_fillter_acclimit[7] = {5 * PI, 5 * PI, 5 * PI, 5 * PI, 5 * PI, 5 * PI, 5 * PI};
+double rightarm_fillter_vlimit[7] = {PI / 5, PI / 5, PI / 5, PI / 5, PI / 5, PI / 5, PI / 5};
+double rightarm_fillter_acclimit[7] = {3 * PI, 3 * PI, 3 * PI, 3 * PI, 3 * PI, 3 * PI, 3 * PI};
 
 // kdm fillter
 double head_fillter_k[3] = {500, 500, 500};
@@ -206,14 +206,14 @@ double leg_fillter_esp[5] = {1.4, 1.4, 1.4, 1.4, 1.4};
 double leg_fillter_vlimit[5] = {PI/5, PI/3, PI/3, PI/3, PI/3};
 double leg_fillter_acclimit[5] = {2 * PI, 5 * PI, 5 * PI, 5 * PI, 5 * PI};
 
-float left_CL[7] = {1.5, 3.0, 1.5, 1.5, 1.5, 1.5, 1.5};
-float right_CL[7] = {1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5};
+float left_CL[7] = {6.0, 6.0, 3.0, 3.0, 1.5, 1.5, 1.5};
+float right_CL[7] = {6.0, 6.0, 3.0, 3.0, 1.5, 1.5, 1.5};
 float head_CL[3] = {1.5, 1.5, 1.5};
 float track_CL[4] = {10.0, 10.0, 10.0, 10.0};
 float leg_CL[5] = {10.0, 20.0, 20.0, 20.0, 20.0};
 
-float left_PL[7] = {6.0, 9.0, 6.0, 6.0, 6.0, 6.0, 6.0};
-float right_PL[7] = {6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0};
+float left_PL[7] = {9.0, 9.0, 9.0, 9.0, 6.0, 6.0, 6.0};
+float right_PL[7] = {9.0, 9.0, 9.0, 9.0, 6.0, 6.0, 6.0};
 float head_PL[3] = {6.0, 6.0, 6.0};
 float track_PL[4] = {20.0, 20.0, 20.0, 20.0};
 float leg_PL[5] = {20.0, 40.0, 40.0, 40.0, 40.0};
@@ -227,7 +227,7 @@ trackpart track;
 
 double alpha[itp_window] = {0.0f};
 double alpha_sum = 0.0f;
-std::vector<double> fil[10];
+std::vector<double> fil[100];
 RT_TASK my_task;
 
 /************************************************
@@ -1671,7 +1671,7 @@ void readForceData(bodypart &arm)
         buf[5] = (double)EC_READ_S32(domain[dm_index].domain_pd + arm.endft.offset.Tz)/arm.endft.countsPerTorque - arm.endft.offsetft[5];
         for (i = 0; i< 6; i++)
         {
-            arm.endft.ft[i] = midvfillter(buf[i], i + 2, 200);
+            arm.endft.ft[i] = midvfillter(buf[i], i + 2 + 7 * arm.dm_index, 200);
         }
 
         arm.endft.status = EC_READ_U32(domain[dm_index].domain_pd + arm.endft.offset.status1);
@@ -1826,6 +1826,7 @@ void ctrlArmMotor(bodypart &arm)
                     }
                 }
             }
+            arm.fctrl.Switch = 0;
         break;
 
         case IDLE:      // 空闲状态，可以进行任务
@@ -2037,7 +2038,7 @@ void ctrlArmMotor(bodypart &arm)
     }
 
     // 经过力控制的滤波器，对ref_position叠加一个力偏置得到期望电机position
-    int dir_enalbe[6] = {1, 1, 1, 1, 1, 0};     // 力控制笛卡尔空间使能
+    int dir_enalbe[6] = {1, 1, 1, 1, 1, 1};     // 力控制笛卡尔空间使能
     uint8_t forceCtrlType = 0;      // 0 逆运动学直接模式， 1 逆运动学差分模式（卡顿）， 2 雅克比模式（不稳定）
 
     // 力控状态机，由于没有状态切换之间的等待， 所以只使用命令字表示状态
@@ -2115,7 +2116,7 @@ void ctrlArmMotor(bodypart &arm)
 
         arm.motor[i].last_actposition = arm.motor[i].act_position;
     }
-    fprintf(fp, "%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n", arm.motor[0].exp_position_kdm, arm.motor[1].exp_position_kdm, arm.motor[2].exp_position_kdm, arm.motor[3].exp_position_kdm, arm.motor[4].exp_position_kdm, arm.motor[5].exp_position_kdm,arm.endft.ft[0],arm.endft.ft[1],arm.endft.ft[2],arm.endft.ft[3],arm.endft.ft[4],arm.endft.ft[5]);
+    fprintf(fp, "%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n", arm.motor[0].exp_position_kdm/arm.jointGear[0], arm.motor[1].exp_position_kdm/arm.jointGear[1], arm.motor[2].exp_position_kdm/arm.jointGear[2], arm.motor[3].exp_position_kdm/arm.jointGear[3], arm.motor[4].exp_position_kdm/arm.jointGear[4], arm.motor[5].exp_position_kdm/arm.jointGear[5],arm.motor[6].exp_position_kdm/arm.jointGear[6],arm.endft.ft[0],arm.endft.ft[1],arm.endft.ft[2],arm.endft.ft[3],arm.endft.ft[4],arm.endft.ft[5]);
 
    
 }
@@ -3096,6 +3097,7 @@ void realtime_proc(void *arg)
                     TfromPose(poseFinal, Tfinal);
                     /* 如果给定的是位姿 先求出位姿对应的关节角  静态大范围求解模式 β扫描间隔 0.01-3420us 0.1-520us*/
                     InverseKinematics(leftarm.jointPos, Tfinal, -M_PI, 0.1, M_PI, jointFinalBeta, angleFianl_beta_size);
+                    // printf_d(jointFinalBeta, 8);
                     
                     if (angleFianl_beta_size[1] == 8){      // 逆运动学成功
                         for (i = 0; i< 7; i++)
@@ -3130,7 +3132,7 @@ void realtime_proc(void *arg)
                 
                 if (left_right == LEFT)
                 {
-                    if (leftarm.state == IDLE)
+                    // if (leftarm.state == IDLE)
                     {
                         printf("Busy:in movej\n");
                         moveJ(leftarm, jointFinal, speedRate);
@@ -3138,7 +3140,7 @@ void realtime_proc(void *arg)
                 }
                 else if (left_right == RIGHT)
                 {
-                    if (rightarm.state == IDLE)
+                    // if (rightarm.state == IDLE)
                     {
                         printf("Busy:in movej\n");
                         moveJ(rightarm, jointFinal, speedRate);
@@ -3490,6 +3492,18 @@ void realtime_proc(void *arg)
                 break;
             }
 
+            case LAMP_ON:
+            {
+                EC_WRITE_S32(domain[head.dm_index].domain_pd + head.motor[2].offset.DO, 0x10000);
+                break;
+            }
+
+            case LAMP_OFF:
+            {
+                EC_WRITE_S32(domain[head.dm_index].domain_pd + head.motor[2].offset.DO, 0x00000);
+                break;
+            }
+
             case NO_RECV:
             {
                 break;
@@ -3509,7 +3523,7 @@ void realtime_proc(void *arg)
                 // printf("%d,%d,%d\n",rightarm.motor[0].servo_state, rightarm.motor[1].servo_state, rightarm.motor[2].servo_state);
             }
             if (bodypart_use[HEAD]){
-                ctrlArmMotor(head);         // 控制头部电机运动
+                ctrlHeadMotor(head);         // 控制头部电机运动
             }
             if (bodypart_use[LEG]){
                 ctrlLegMotor(leg);          // 控制底盘履带电机运动
@@ -3559,7 +3573,7 @@ void realtime_proc(void *arg)
             // printf( "AKD: Total time: %ldms, Loop time : %ldus,%d,%f,%f\n", (long)(now - start_time)/1000000, (long)period, rightarm.motor[0].act_position, rightarm.motor[0].exp_position, rightarm.motor[0].act_current);
             prev_second = tv.tv_sec;
         }
-        printf( "AKD: Loop time : %ldus\n",(long)period);
+        // printf( "AKD: Loop time : %ldus\n",(long)period);
 
     }
 

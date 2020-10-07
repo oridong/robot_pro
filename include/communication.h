@@ -33,6 +33,8 @@
 # define FORCE_ENABLE 8
 # define FORCE_DISABLE 9
 # define MOVE_TEST 10
+# define LAMP_ON 11
+# define LAMP_OFF 12
 
 # define NO_RECV -2
 # define ERROR_MATCH -1
@@ -49,7 +51,9 @@ const char cmd_table[][CMD_SIZE] = {
     "moveFollow",
     "forceEn",
     "forceDis",
-    "moveTest"
+    "moveTest",
+    "lampOn",
+    "lampOff"
 };
 
 typedef struct{
