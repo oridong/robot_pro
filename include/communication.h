@@ -17,9 +17,9 @@
 # define ROBOT_IP "192.168.8.11" //"10.1.76.247"// 192.168.50.14  192.168.8.11
 # define ROBOT_PORT 8000
 
-# define RECV_BUF_SIZE 512  // 接收缓存区大小
-# define CMD_SIZE 30        // 命令字大小
-# define PARAM_SIZE 200     // 后跟随参数大小
+# define RECV_BUF_SIZE 512  // 接收缓存区大�?
+# define CMD_SIZE 30        // 命令字大�?
+# define PARAM_SIZE 200     // 后跟随参数大�?
 # define PARAM_LIST_SIZE 20 // 每个参数大小
 
 # define HEADL 0
@@ -35,6 +35,7 @@
 # define MOVE_TEST 10
 # define LAMP_ON 11
 # define LAMP_OFF 12
+# define SPEED_L 13
 
 # define NO_RECV -2
 # define ERROR_MATCH -1
@@ -53,7 +54,8 @@ const char cmd_table[][CMD_SIZE] = {
     "forceDis",
     "moveTest",
     "lampOn",
-    "lampOff"
+    "lampOff",
+    "speedL"
 };
 
 typedef struct{

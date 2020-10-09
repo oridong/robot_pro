@@ -2591,6 +2591,13 @@ void realtime_proc(void *arg)
     double test_A = 0;
     double test_T = 0;
 
+    // speedL
+    double Tdelta[16];
+    double delta[6];
+    double speed[6];
+    int inToolFrame = 0;
+    double pose07[6];
+
     while (run)
     {
         rt_task_wait_period(NULL);      // 等待定时周期
@@ -3486,6 +3493,90 @@ void realtime_proc(void *arg)
                         rightarm.test_T = test_T;
                         rightarm.state = ON_MOVETEST;
                         rightarm.fctrl.Switch = 0;
+                    }
+                }
+                break;
+            }
+
+            case SPEED_L:
+            {
+                if (cmd.param_cnt == 8)
+                {
+                    if (!CM_Atoi(cmd.param_list[0], left_right))
+                        break;
+                    if (!CM_Atoi(cmd.param_list[7], inToolFrame))
+                        break;
+                    for (i = 0; i< 6; i++)
+                    {
+                        speed[i] = cmd.param_list[i + 1];
+                    }
+                }
+                if (left_right == LEFT)
+                {
+                    leftarm.state = ON_MOVE_FOLLOW;
+                    leftarm.movefollowCnt = 0;
+                    for (i = 0; i< 6; i++)
+                    {
+                        delta[i] = speed[i] * (double)ctl_period/1e9;
+                    }
+
+                    ForwardKinematics(leftarm.jointPos, T07);
+                    if (inToolFrame){
+                        TfromPose(delta, Tdelta);
+                        matrixMultiply(T07, 4, 4, Tdelta, 4, 4, Tfinal);
+                    }
+                    else
+                    {
+                        PosefromT(T07, pose07);
+                        for (i = 0; i< 6; i++)
+                        {
+                            pose07 += delta[i];
+                        }
+                        TfromPose(pose07, Tfinal);
+                    }
+                    
+                    /* 如果给定的是位姿 先求出位姿对应的关节角  静态大范围求解模式 β扫描间隔 0.01-3420us 0.1-520us*/
+                    InverseKinematics(leftarm.jointPos, Tfinal, -M_PI/2, 0.1, M_PI/2, jointFinalBeta, angleFianl_beta_size);
+                    if (angleFianl_beta_size[1] == 8)
+                    {
+                        for (i = 0; i< leftarm.motornum; i++)
+                        {
+                            leftarm.motor[i].ref_position = jointFinalBeta[i] * leftarm.jointGear[i];
+                        }
+                    }
+                }
+                else if (left_right == RIGHT)
+                {
+                    rightarm.state = ON_MOVE_FOLLOW;
+                    rightarm.movefollowCnt = 0;
+                    for (i = 0; i< 6; i++)
+                    {
+                        delta[i] = speed[i] * (double)ctl_period/1e9;
+                    }
+
+                    ForwardKinematics(rightarm.jointPos, T07);
+                    if (inToolFrame){
+                        TfromPose(delta, Tdelta);
+                        matrixMultiply(T07, 4, 4, Tdelta, 4, 4, Tfinal);
+                    }
+                    else
+                    {
+                        PosefromT(T07, pose07);
+                        for (i = 0; i< 6; i++)
+                        {
+                            pose07 += delta[i];
+                        }
+                        TfromPose(pose07, Tfinal);
+                    }
+                    
+                    /* 如果给定的是位姿 先求出位姿对应的关节角  静态大范围求解模式 β扫描间隔 0.01-3420us 0.1-520us*/
+                    InverseKinematics(rightarm.jointPos, Tfinal, -M_PI/2, 0.1, M_PI/2, jointFinalBeta, angleFianl_beta_size);
+                    if (angleFianl_beta_size[1] == 8)
+                    {
+                        for (i = 0; i< rightarm.motornum; i++)
+                        {
+                            rightarm.motor[i].ref_position = jointFinalBeta[i] * rightarm.jointGear[i];
+                        }
                     }
                 }
                 break;

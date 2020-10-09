@@ -193,47 +193,47 @@ void robotSendFeedback(bodypart la, bodypart ra, bodypart head, bodypart leg, tr
 
     if(leg.motor[0].servo_state == 1)
     {
-        buf[17] = -leg.motor[0].act_position/leg.jointGear[0];
+        buf[17] = leg.motor[0].act_position/leg.jointGear[0];
     }
     else
     {
-        buf[17] = -leg.motor[0].exp_position_kdm/leg.jointGear[0];
+        buf[17] = leg.motor[0].exp_position_kdm/leg.jointGear[0];
     }
 
     if(leg.motor[2].servo_state == 1)
     {
-        buf[18] = -leg.motor[2].act_position/leg.jointGear[2];
+        buf[18] = leg.motor[2].act_position/leg.jointGear[2];
     }
     else
     {
-        buf[18] = -leg.motor[2].exp_position_kdm/leg.jointGear[2];
+        buf[18] = leg.motor[2].exp_position_kdm/leg.jointGear[2];
     }
 
     if(leg.motor[1].servo_state == 1)
     {
-        buf[19] = leg.motor[1].act_position/leg.jointGear[1]-PI;
+        buf[19] = leg.motor[1].act_position/leg.jointGear[1];
     }
     else
     {
-        buf[19] = leg.motor[1].exp_position_kdm/leg.jointGear[1]-PI;
+        buf[19] = leg.motor[1].exp_position_kdm/leg.jointGear[1];
     }
 
     if(leg.motor[3].servo_state == 1)
     {
-        buf[20] = -leg.motor[3].act_position/leg.jointGear[3];
+        buf[20] = leg.motor[3].act_position/leg.jointGear[3];
     }
     else
     {
-        buf[20] = -leg.motor[3].exp_position_kdm/leg.jointGear[3];
+        buf[20] = leg.motor[3].exp_position_kdm/leg.jointGear[3];
     }
 
     if(leg.motor[4].servo_state == 1)
     {
-        buf[21] = -leg.motor[4].act_position/leg.jointGear[4] + PI;
+        buf[21] = leg.motor[4].act_position/leg.jointGear[4];
     }
     else
     {
-        buf[21] = -leg.motor[4].exp_position_kdm/leg.jointGear[4] + PI;
+        buf[21] = leg.motor[4].exp_position_kdm/leg.jointGear[4];
     }
 
     char send_buf[2048] = "";
