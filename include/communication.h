@@ -11,15 +11,15 @@
 # define CTRL_IP "192.168.8.3" 
 # define CTRL_PORT 8001
 
-# define Nvidia_IP "192.168.8.8" 
+# define Nvidia_IP "192.168.8.17" 
 # define Nvidia_PORT 8002
 
 # define ROBOT_IP "192.168.8.11" //"10.1.76.247"// 192.168.50.14  192.168.8.11
 # define ROBOT_PORT 8000
 
-# define RECV_BUF_SIZE 512  // 接收缓存区大�?
-# define CMD_SIZE 30        // 命令字大�?
-# define PARAM_SIZE 200     // 后跟随参数大�?
+# define RECV_BUF_SIZE 512  // 接收缓存区大�?
+# define CMD_SIZE 30        // 命令字大�?
+# define PARAM_SIZE 200     // 后跟随参数大�?
 # define PARAM_LIST_SIZE 20 // 每个参数大小
 
 # define HEADL 0

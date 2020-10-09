@@ -44,7 +44,7 @@
 # define LEG 3
 # define TRACK 4
 
-# define LEFT_ETHERCAT master[1], 1
+# define LEFT_ETHERCAT master[0], 0
 # define RIGHT_ETHERCAT master[0], 0
 # define HEAD_ETHERCAT master[1], 1
 # define CHASSIS_ETHERCAT master[2], 2
@@ -89,9 +89,9 @@ FILE *fp;
 
 // 使用电机或ethercat与否，调试需求
 #define ETHERCAT_MAX 4
-int ethercat_use[ETHERCAT_MAX] = {0, 0, 0, 0};
-int bodypart_use[5] = {0, 0, 0, 0, 0};
-int leftarm_use_motor[8] = {1, 1, 1, 1, 1, 1, 1, 1};
+int ethercat_use[ETHERCAT_MAX] = {1, 0, 0, 0};
+int bodypart_use[5] = {1, 0, 0, 0, 0};
+int leftarm_use_motor[8] = {1, 1, 1, 1, 1, 1, 1 ,1};
 int rightarm_use_motor[8] = {1, 1, 1, 1, 1, 1, 1, 1};
 int head_use_motor[3] = {0, 0, 0};
 int track_use_motor[4] = {1, 1, 1, 1};
@@ -2592,6 +2592,7 @@ void realtime_proc(void *arg)
     double test_T = 0;
 
     // speedL
+    double T07[16];
     double Tdelta[16];
     double delta[6];
     double speed[6];
@@ -3138,6 +3139,10 @@ void realtime_proc(void *arg)
                 
                 if (left_right == LEFT)
                 {
+                    for (i = 0; i< leftarm.motornum; i++)
+                    {
+                        leftarm.motor[i].itp_period_times = 10;
+                    }
                     // if (leftarm.state == IDLE)
                     {
                         printf("Busy:in movej\n");
@@ -3146,6 +3151,10 @@ void realtime_proc(void *arg)
                 }
                 else if (left_right == RIGHT)
                 {
+                    for (i = 0; i< rightarm.motornum; i++)
+                    {
+                        rightarm.motor[i].itp_period_times = 10;
+                    }
                     // if (rightarm.state == IDLE)
                     {
                         printf("Busy:in movej\n");
@@ -3508,9 +3517,18 @@ void realtime_proc(void *arg)
                         break;
                     for (i = 0; i< 6; i++)
                     {
-                        speed[i] = cmd.param_list[i + 1];
+                        if (!CM_Atof(cmd.param_list[i + 1], speed[i]))
+                            break;
+                        if (i < 3){
+                            speed[i] *= 1000;
+                        }
                     }
                 }
+                else
+                {
+                    break;
+                }
+                
                 if (left_right == LEFT)
                 {
                     leftarm.state = ON_MOVE_FOLLOW;
@@ -3521,16 +3539,18 @@ void realtime_proc(void *arg)
                     }
 
                     ForwardKinematics(leftarm.jointPos, T07);
-                    if (inToolFrame){
+                    printf_d(delta,6);
+
+                    if (inToolFrame == 1){
                         TfromPose(delta, Tdelta);
                         matrixMultiply(T07, 4, 4, Tdelta, 4, 4, Tfinal);
                     }
-                    else
+                    else if (inToolFrame == 0)
                     {
                         PosefromT(T07, pose07);
                         for (i = 0; i< 6; i++)
                         {
-                            pose07 += delta[i];
+                            pose07[i] += delta[i];
                         }
                         TfromPose(pose07, Tfinal);
                     }
@@ -3541,9 +3561,15 @@ void realtime_proc(void *arg)
                     {
                         for (i = 0; i< leftarm.motornum; i++)
                         {
+                            leftarm.motor[i].itp_period_times = 40;
                             leftarm.motor[i].ref_position = jointFinalBeta[i] * leftarm.jointGear[i];
                         }
                     }
+                    else
+                    {
+                        printf("inverse kinematics failed\n");
+                    }
+                    
                 }
                 else if (left_right == RIGHT)
                 {
@@ -3564,7 +3590,7 @@ void realtime_proc(void *arg)
                         PosefromT(T07, pose07);
                         for (i = 0; i< 6; i++)
                         {
-                            pose07 += delta[i];
+                            pose07[i] += delta[i];
                         }
                         TfromPose(pose07, Tfinal);
                     }
@@ -3575,6 +3601,7 @@ void realtime_proc(void *arg)
                     {
                         for (i = 0; i< rightarm.motornum; i++)
                         {
+                            rightarm.motor[i].itp_period_times = 40;
                             rightarm.motor[i].ref_position = jointFinalBeta[i] * rightarm.jointGear[i];
                         }
                     }
