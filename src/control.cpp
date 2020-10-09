@@ -89,8 +89,8 @@ FILE *fp;
 
 // 使用电机或ethercat与否，调试需求
 #define ETHERCAT_MAX 4
-int ethercat_use[ETHERCAT_MAX] = {1, 1, 0, 0};
-int bodypart_use[5] = {1, 1, 0, 0, 0};
+int ethercat_use[ETHERCAT_MAX] = {0, 0, 0, 0};
+int bodypart_use[5] = {0, 0, 0, 0, 0};
 int leftarm_use_motor[8] = {1, 1, 1, 1, 1, 1, 1, 1};
 int rightarm_use_motor[8] = {1, 1, 1, 1, 1, 1, 1, 1};
 int head_use_motor[3] = {0, 0, 0};
@@ -2116,8 +2116,7 @@ void ctrlArmMotor(bodypart &arm)
 
         arm.motor[i].last_actposition = arm.motor[i].act_position;
     }
-    fprintf(fp, "%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n", arm.motor[0].exp_position_kdm/arm.jointGear[0], arm.motor[1].exp_position_kdm/arm.jointGear[1], arm.motor[2].exp_position_kdm/arm.jointGear[2], arm.motor[3].exp_position_kdm/arm.jointGear[3], arm.motor[4].exp_position_kdm/arm.jointGear[4], arm.motor[5].exp_position_kdm/arm.jointGear[5],arm.motor[6].exp_position_kdm/arm.jointGear[6],arm.endft.ft[0],arm.endft.ft[1],arm.endft.ft[2],arm.endft.ft[3],arm.endft.ft[4],arm.endft.ft[5]);
-
+    fprintf(fp, "%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n", arm.motor[0].ref_position/arm.jointGear[0], arm.motor[1].ref_position/arm.jointGear[1], arm.motor[2].ref_position/arm.jointGear[2], arm.motor[3].ref_position/arm.jointGear[3], arm.motor[4].ref_position/arm.jointGear[4], arm.motor[5].ref_position/arm.jointGear[5],arm.motor[6].ref_position/arm.jointGear[6],arm.endft.ft[0],arm.endft.ft[1],arm.endft.ft[2],arm.endft.ft[3],arm.endft.ft[4],arm.endft.ft[5]);
    
 }
 
@@ -3203,7 +3202,7 @@ void realtime_proc(void *arg)
 
             case MOVE_FOLLOW:    
             {   
-                if (!CM_Atoi(cmd.param_list[0], left_right))
+               if (!CM_Atoi(cmd.param_list[0], left_right))
                     break;
                 if (cmd.param_cnt == 8 || cmd.param_cnt == 4 || cmd.param_cnt == 6)     // 给定关节角
                 {

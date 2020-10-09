@@ -682,7 +682,7 @@ int forceUpdate(bodypart &arm, int type, double dt, int dir_enable[6])
 
             matrixMultiply(Tref, 4, 4, dtrans, 4, 4, temp);
             beta = FindBeta(angleRef);
-
+ 
             InverseKinematics(angleNow, temp, beta, 0, beta, angleExp, angleExpsize);
         break;
 
@@ -754,9 +754,9 @@ int forceUpdate(bodypart &arm, int type, double dt, int dir_enable[6])
             arm.motor[i].exp_position = angleExp[i] * arm.jointGear[i];
         }
     }
-    // {
-    //     printf("inverse kinematics failed\n");
-    // }
+    {
+        printf("fctrl inverse kinematics failed\n");
+    }
 
     normOfPose = norm(arm.fctrl.totalP, 6);
     if (normOfPose< 1e-3)
