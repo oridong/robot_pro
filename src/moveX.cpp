@@ -670,7 +670,6 @@ int forceUpdate(bodypart &arm, int type, double dt, int dir_enable[6])
     double rot[9] = {1.0, deltatrans[5], -deltatrans[4],  
                     -deltatrans[5], 1.0, deltatrans[3], 
                     deltatrans[4], -deltatrans[3], 1.0};  
-
     switch (type)
     {
         case 0:     // 最稳方式
@@ -686,6 +685,7 @@ int forceUpdate(bodypart &arm, int type, double dt, int dir_enable[6])
             beta = FindBeta(angleNow);
  
             InverseKinematics(angleNow, temp, beta, 0, beta, angleExp, angleExpsize);
+            fprintf(fp, "%.10f,%.10f,%.10f,%.10f,%.10f,%.10f,%f,%f,%f,%f,%f,%f\n", arm.fctrl.totalP[0], arm.fctrl.totalP[1], arm.fctrl.totalP[2], arm.fctrl.totalP[3], arm.fctrl.totalP[4], arm.fctrl.totalP[5],arm.endft.ft[0],arm.endft.ft[1],arm.endft.ft[2],arm.endft.ft[3],arm.endft.ft[4],arm.endft.ft[5]);
         break;
 
         case 1:
@@ -707,6 +707,7 @@ int forceUpdate(bodypart &arm, int type, double dt, int dir_enable[6])
 
             InverseKinematics(angleNow, temp, beta, 0.0, beta, angleExp, angleExpsize);
 
+           
         break;
 
         case 2:
@@ -755,7 +756,6 @@ int forceUpdate(bodypart &arm, int type, double dt, int dir_enable[6])
         {
             arm.motor[i].exp_position = angleExp[i] * arm.jointGear[i];
         }
-        fprintf(fp, "%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n", angleExp[7], arm.motor[0].exp_position, arm.motor[1].exp_position, arm.motor[2].exp_position, arm.motor[3].exp_position, arm.motor[4].exp_position, arm.motor[5].exp_position, arm.motor[6].exp_position,arm.endft.ft[0],arm.endft.ft[1],arm.endft.ft[2],arm.endft.ft[3],arm.endft.ft[4],arm.endft.ft[5]);
     }
     else{
         printf("fctrl inverse kinematics failed\n");

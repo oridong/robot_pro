@@ -2116,7 +2116,7 @@ void ctrlArmMotor(bodypart &arm)
 
         arm.motor[i].last_actposition = arm.motor[i].act_position;
     }
-    // fprintf(fp, "%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n", arm.motor[0].ref_position/arm.jointGear[0], arm.motor[1].ref_position/arm.jointGear[1], arm.motor[2].ref_position/arm.jointGear[2], arm.motor[3].ref_position/arm.jointGear[3], arm.motor[4].ref_position/arm.jointGear[4], arm.motor[5].ref_position/arm.jointGear[5],arm.motor[6].ref_position/arm.jointGear[6],arm.endft.ft[0],arm.endft.ft[1],arm.endft.ft[2],arm.endft.ft[3],arm.endft.ft[4],arm.endft.ft[5]);
+    // fprintf(fp, "%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n", arm.motor[0].this_send/arm.jointGear[0], arm.motor[1].this_send/arm.jointGear[1], arm.motor[2].this_send/arm.jointGear[2], arm.motor[3].this_send/arm.jointGear[3], arm.motor[4].this_send/arm.jointGear[4], arm.motor[5].this_send/arm.jointGear[5],arm.motor[6].this_send/arm.jointGear[6],arm.endft.ft[0],arm.endft.ft[1],arm.endft.ft[2],arm.endft.ft[3],arm.endft.ft[4],arm.endft.ft[5]);
    
 }
 

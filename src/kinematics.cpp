@@ -544,11 +544,11 @@ void InverseKinematics(const double angleInit[7], double expectPose_tool[16], do
                             flag = 1;
                         }
 
-                        if ((length_BW <= -2.181) || (length_BW >= 2.181))
-                        {
-                            /*第六个关节超出范围，请重新选择期望位姿 */
-                            flag = 1;
-                        }
+                        // if ((length_BW <= -2.181) || (length_BW >= 2.181))
+                        // {
+                        //     /*第六个关节超出范围，请重新选择期望位姿 */
+                        //     flag = 1;
+                        // }
 
                         if ((theta_B <= -2.967) || (theta_B >= 2.967))
                         {
