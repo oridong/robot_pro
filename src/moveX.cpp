@@ -621,6 +621,8 @@ int forceUpdate(bodypart &arm, int type, double dt, int dir_enable[6])
     double force_vlim[6] = {50.0, 50.0, 80.0, 7.0, 7.0, 7.0}; 
     double force_flim[6] = {200.0, 200.0, 200.0, 50.0, 50.0, 50.0}; 
 
+    extern FILE *fp;
+
     for ( i = 0; i < arm.motornum; i++)
     {
         angleRef[i] = arm.motor[i].ref_position / arm.jointGear[i];
@@ -681,7 +683,7 @@ int forceUpdate(bodypart &arm, int type, double dt, int dir_enable[6])
             ForwardKinematics(angleRef, Tref);  
 
             matrixMultiply(Tref, 4, 4, dtrans, 4, 4, temp);
-            beta = FindBeta(angleRef);
+            beta = FindBeta(angleNow);
  
             InverseKinematics(angleNow, temp, beta, 0, beta, angleExp, angleExpsize);
         break;
@@ -701,7 +703,7 @@ int forceUpdate(bodypart &arm, int type, double dt, int dir_enable[6])
             ForwardKinematics(angleRef, Tref);
 
             matrixMultiply(Tref, 4, 4, dtrans, 4, 4, temp);
-            beta = FindBeta(angleRef);
+            beta = FindBeta(angleNow);
 
             InverseKinematics(angleNow, temp, beta, 0.0, beta, angleExp, angleExpsize);
 
@@ -753,8 +755,9 @@ int forceUpdate(bodypart &arm, int type, double dt, int dir_enable[6])
         {
             arm.motor[i].exp_position = angleExp[i] * arm.jointGear[i];
         }
+        fprintf(fp, "%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n", angleExp[7], arm.motor[0].exp_position, arm.motor[1].exp_position, arm.motor[2].exp_position, arm.motor[3].exp_position, arm.motor[4].exp_position, arm.motor[5].exp_position, arm.motor[6].exp_position,arm.endft.ft[0],arm.endft.ft[1],arm.endft.ft[2],arm.endft.ft[3],arm.endft.ft[4],arm.endft.ft[5]);
     }
-    {
+    else{
         printf("fctrl inverse kinematics failed\n");
     }
 

@@ -544,11 +544,11 @@ void InverseKinematics(const double angleInit[7], double expectPose_tool[16], do
                             flag = 1;
                         }
 
-                        // if ((length_BW <= -2.181) || (length_BW >= 2.181))
-                        // {
-                        //     /*第六个关节超出范围，请重新选择期望位姿 */
-                        //     flag = 1;
-                        // }
+                        if ((length_BW <= -2.181) || (length_BW >= 2.181))
+                        {
+                            /*第六个关节超出范围，请重新选择期望位姿 */
+                            flag = 1;
+                        }
 
                         if ((theta_B <= -2.967) || (theta_B >= 2.967))
                         {
@@ -603,25 +603,21 @@ void InverseKinematics(const double angleInit[7], double expectPose_tool[16], do
                                 memcpy(&angleByPlanning_data[0], &b_theta_new[0], sizeof(double) << 3);
                             }
                         }
-                        else
-                        {
-                            /* 如果存在以上任何一种冲突情况，停止此次规划，进入下一次循环 */
-                        }
-
+                        /* 如果存在以上任何一种冲突情况，停止此次规划，进入下一次循环 */
                     } /* theta6取正负值循环结束*/
 
                 } // if (!(T47_inverse[9] == 0.0))
                 else
                 {
                     /* T47_inverse(2,3)的表达式为c6，首先判断是否为0*/
-                    printf("关节奇异，请重新选定β\n");
+                    printf("关节奇异，6关节角度为零，请重新选定β\n");
                 }
 
             } // if (!(b_theta_2 == 0.0))
             else
             {
                 /* 当第二个关节规划角度为0时，1、3关节奇异，剔除该取值*/
-                printf("关节奇异，请重新规划\n");
+                printf("关节奇异，2关节角度为零，请重新规划\n");
             }
 
         } /* theta2取正负值循环结束*/

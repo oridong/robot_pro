@@ -297,5 +297,6 @@ void readForceData(bodypart &arm);
 void check_follow(bodypart & arm, double timeout);
 double midvfillter(double data, int index, int size);
 
+extern FILE *fp;
 
 # endif

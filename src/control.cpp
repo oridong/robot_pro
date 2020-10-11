@@ -83,9 +83,7 @@
 
 /***************************************************************
  * 变量及参数， 注意：电机参数列表需要大于使用电机数量
- /**************************************************************/
-
-FILE *fp;
+/**************************************************************/
 
 // 使用电机或ethercat与否，调试需求
 #define ETHERCAT_MAX 4
@@ -229,6 +227,8 @@ double alpha[itp_window] = {0.0f};
 double alpha_sum = 0.0f;
 std::vector<double> fil[100];
 RT_TASK my_task;
+
+FILE *fp;
 
 /************************************************
  * 重要状态位
@@ -1845,7 +1845,7 @@ void ctrlArmMotor(bodypart &arm)
                                 arm.motor[i].servo_cmd = 0;
                                 arm.motor[i].servo_first = 0;
                                 ret = 0;
-                                printf("%d, out of limit, no move\n", i);
+                                printf("%d, out of limit, enable again\n", i);
                             }
                             else
                             {
@@ -2116,7 +2116,7 @@ void ctrlArmMotor(bodypart &arm)
 
         arm.motor[i].last_actposition = arm.motor[i].act_position;
     }
-    fprintf(fp, "%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n", arm.motor[0].ref_position/arm.jointGear[0], arm.motor[1].ref_position/arm.jointGear[1], arm.motor[2].ref_position/arm.jointGear[2], arm.motor[3].ref_position/arm.jointGear[3], arm.motor[4].ref_position/arm.jointGear[4], arm.motor[5].ref_position/arm.jointGear[5],arm.motor[6].ref_position/arm.jointGear[6],arm.endft.ft[0],arm.endft.ft[1],arm.endft.ft[2],arm.endft.ft[3],arm.endft.ft[4],arm.endft.ft[5]);
+    // fprintf(fp, "%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n", arm.motor[0].ref_position/arm.jointGear[0], arm.motor[1].ref_position/arm.jointGear[1], arm.motor[2].ref_position/arm.jointGear[2], arm.motor[3].ref_position/arm.jointGear[3], arm.motor[4].ref_position/arm.jointGear[4], arm.motor[5].ref_position/arm.jointGear[5],arm.motor[6].ref_position/arm.jointGear[6],arm.endft.ft[0],arm.endft.ft[1],arm.endft.ft[2],arm.endft.ft[3],arm.endft.ft[4],arm.endft.ft[5]);
    
 }
 
@@ -2598,6 +2598,7 @@ void realtime_proc(void *arg)
     double speed[6];
     int inToolFrame = 0;
     double pose07[6];
+    double jointrefpos[7];
 
     while (run)
     {
@@ -3535,12 +3536,16 @@ void realtime_proc(void *arg)
                     leftarm.movefollowCnt = 0;
                     for (i = 0; i< 6; i++)
                     {
-                        delta[i] = speed[i] * (double)ctl_period/1e9;
+                        delta[i] = speed[i] * 0.04;
                     }
 
-                    ForwardKinematics(leftarm.jointPos, T07);
-                    printf_d(delta,6);
+                    for (i = 0; i< leftarm.motornum; i++)
+                    {
+                        jointrefpos[i] = leftarm.motor[i].ref_position/leftarm.jointGear[i];
+                    }
+                    ForwardKinematics(jointrefpos, T07);
 
+                    printf_d(jointrefpos,7);
                     if (inToolFrame == 1){
                         TfromPose(delta, Tdelta);
                         matrixMultiply(T07, 4, 4, Tdelta, 4, 4, Tfinal);
@@ -3577,15 +3582,20 @@ void realtime_proc(void *arg)
                     rightarm.movefollowCnt = 0;
                     for (i = 0; i< 6; i++)
                     {
-                        delta[i] = speed[i] * (double)ctl_period/1e9;
+                        delta[i] = speed[i] * 0.04                                                                                                                                                         ;
                     }
+                    
+                    for (i = 0; i< rightarm.motornum; i++)
+                    {
+                        jointrefpos[i] = rightarm.motor[i].ref_position/rightarm.jointGear[i];
+                    }
+                    ForwardKinematics(jointrefpos, T07);
 
-                    ForwardKinematics(rightarm.jointPos, T07);
-                    if (inToolFrame){
+                    if (inToolFrame == 1){
                         TfromPose(delta, Tdelta);
                         matrixMultiply(T07, 4, 4, Tdelta, 4, 4, Tfinal);
                     }
-                    else
+                    else if (inToolFrame == 0)
                     {
                         PosefromT(T07, pose07);
                         for (i = 0; i< 6; i++)
@@ -3604,6 +3614,10 @@ void realtime_proc(void *arg)
                             rightarm.motor[i].itp_period_times = 40;
                             rightarm.motor[i].ref_position = jointFinalBeta[i] * rightarm.jointGear[i];
                         }
+                    }
+                    else
+                    {
+                        printf("inverse kinematics failed\n");
                     }
                 }
                 break;
