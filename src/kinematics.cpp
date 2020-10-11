@@ -320,6 +320,13 @@ void InverseKinematics(const double angleInit[7], double expectPose_tool[16], do
 
     double Ttool7[16] = {0, 0, 1, 0, 0, 1, 0, 0, -1, 0, 0, 0, 0, 0, -126.0, 1};
     matrixMultiply(expectPose_tool, 4, 4, Ttool7, 4, 4, expectPose);
+    double distance = sqrt(expectPose[12]*expectPose[12]+expectPose[13]*expectPose[13]+expectPose[14]*expectPose[14]);
+    if(distance>=899)
+    {
+        printf("目标位置超出机械臂最大工作范围！");
+        angleByPlanning_size[1] = 0;
+        return;
+    }
     // ==================================================================//
     // ===================== 逆运动学求解前四个关节值 ===================== //
     // ==================================================================//
@@ -610,14 +617,16 @@ void InverseKinematics(const double angleInit[7], double expectPose_tool[16], do
                 else
                 {
                     /* T47_inverse(2,3)的表达式为c6，首先判断是否为0*/
-                    printf("关节奇异，6关节角度为零，请重新选定β\n");
+                    // printf("关节奇异，6关节角度为零，请重新选定β\n");
+                    continue;
                 }
 
             } // if (!(b_theta_2 == 0.0))
             else
             {
                 /* 当第二个关节规划角度为0时，1、3关节奇异，剔除该取值*/
-                printf("关节奇异，2关节角度为零，请重新规划\n");
+                // printf("第2关节奇异，2关节角度为零，请重新规划\n");
+                continue;
             }
 
         } /* theta2取正负值循环结束*/
@@ -626,6 +635,27 @@ void InverseKinematics(const double angleInit[7], double expectPose_tool[16], do
         i++;
 
     } // 使用评价函数进行冗余自由度规划
+    
+    if (b_theta_2==0)
+    {
+        printf("第2个关节规划角度为0，关节奇异，请重新规划\n");
+        angleByPlanning_size[1] = 0;
+        return;
+    }
+    if (abs(b_theta_2)<0.1)
+    {
+        printf("第2个关节规划角度即将为0！\n");
+    }
+    if (length_BW==0)
+    {
+        printf("第6个关节规划角度为0，关节奇异，请重新规划\n");
+        angleByPlanning_size[1] = 0;
+        return;
+    }
+    if (abs(length_BW)<0.1)
+    {
+        printf("第6个关节规划角度即将为0！\n");
+    }
 }
 
 /*
