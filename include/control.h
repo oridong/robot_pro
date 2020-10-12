@@ -268,6 +268,7 @@ typedef struct
 
     // 重要状态位 
     int state;
+    int teachEn;
     uint16_t movefollowCnt;
 
 }bodypart;

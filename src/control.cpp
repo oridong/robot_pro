@@ -402,6 +402,7 @@ int leftarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * motor
     arm.motornum = 7;
     arm.state = DISABLE;
     arm.fctrl.Switch = 0;
+    arm.teachEn = 0;
 
     uint8_t addr = 0;
 
@@ -575,6 +576,7 @@ int rightarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * moto
     arm.motornum = 7;
     arm.state = DISABLE;
     arm.fctrl.Switch = 0;
+    arm.teachEn = 0;
 
     uint8_t addr = 0;
 
@@ -745,12 +747,12 @@ int headInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * motor_po
     arm.itp_period_times = 10;
     arm.movefollowCnt = 0;
     arm.state = DISABLE;
+    arm.teachEn = 0;
 
     uint8_t addr = 0;
     
     for (i = 0; i < arm.motornum; i++)     // ！！！！！！！！！
     {
-
         arm.jointGear[i] = headGear[i];
         arm.dir[i] = headjointDir[i];
         arm.startJointAngle[i] = 0.0;
@@ -1611,8 +1613,6 @@ void stopTrackMotor(trackpart & trc)
  */
 void readArmData(bodypart & arm)
 {
-    // printf("%f,", arm.motor[0].ref_position);
-
     int i;
     int motornum = arm.motornum;
     for (i = 0; i < motornum; i++)
@@ -1638,7 +1638,7 @@ void readArmData(bodypart & arm)
             arm.motor[i].last_actposition = arm.motor[i].act_position;
             arm.motor[i].first_time = 1;
         }
-        if (arm.motor[i].servo_state == 1)
+        if (arm.motor[i].servo_state == 1 || arm.teachEn == 1)
         {
             arm.jointPos[i] = (double)(arm.motor[i].act_position) / arm.jointGear[i] ;
         }
@@ -1826,7 +1826,7 @@ void ctrlArmMotor(bodypart &arm)
                     }
                 }
             }
-            arm.fctrl.Switch = 0;
+            arm.fctrl.Switch = 0;       //关闭力控
         break;
 
         case IDLE:      // 空闲状态，可以进行任务
@@ -3634,6 +3634,52 @@ void realtime_proc(void *arg)
                     }
                 }
                 break;
+            }
+
+            case TEACH_EN:
+            {
+                if (cmd.param_cnt == 1)
+                {
+                    if (!CM_Atoi(cmd.param_list[0], left_right))        // 第一位
+                        break;
+                }
+                else
+                    break;
+                
+                if (left_right == LEFT)
+                {
+                    leftarm.state = DISABLE;
+                    leftarm.teachEn = 1;
+                    printf("leftarm teach enable\n");
+                }
+                else if (left_right == RIGHT)
+                {
+                    rightarm.state = DISABLE;
+                    rightarm.teachEn = 1;
+                    printf("rightarm teach enable\n");
+                }
+            }
+
+            case TEACH_DIS:
+            {
+                if (cmd.param_cnt == 1)
+                {
+                    if (!CM_Atoi(cmd.param_list[0], left_right))        // 第一位
+                        break;
+                }
+                else
+                    break;
+                
+                if (left_right == LEFT)
+                {
+                    leftarm.teachEn = 0;
+                    printf("leftarm teach disable\n");
+                }
+                else if (left_right == RIGHT)
+                {
+                    rightarm.teachEn = 0;
+                    printf("rightarm teach disable\n");
+                }
             }
 
             case LAMP_ON:
