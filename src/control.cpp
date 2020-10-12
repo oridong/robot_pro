@@ -45,9 +45,9 @@
 # define TRACK 4
 
 # define LEFT_ETHERCAT master[0], 0
-# define RIGHT_ETHERCAT master[0], 0
+# define RIGHT_ETHERCAT master[1], 1
 # define HEAD_ETHERCAT master[1], 1
-# define CHASSIS_ETHERCAT master[2], 2
+# define CHASSIS_ETHERCAT master[3], 3
 /******************* CanOpen控制字 *******************/
 #define SM_trans2 0x0006
 #define SM_trans3 0x0007
@@ -87,8 +87,8 @@
 
 // 使用电机或ethercat与否，调试需求
 #define ETHERCAT_MAX 4
-int ethercat_use[ETHERCAT_MAX] = {1, 0, 0, 0};
-int bodypart_use[5] = {1, 0, 0, 0, 0};
+int ethercat_use[ETHERCAT_MAX] = {1, 1, 0, 1};
+int bodypart_use[5] = {1, 1, 0, 1, 1};
 int leftarm_use_motor[8] = {1, 1, 1, 1, 1, 1, 1 ,1};
 int rightarm_use_motor[8] = {1, 1, 1, 1, 1, 1, 1, 1};
 int head_use_motor[3] = {0, 0, 0};
@@ -3574,7 +3574,6 @@ void realtime_proc(void *arg)
                     {
                         printf("inverse kinematics failed\n");
                     }
-                    
                 }
                 else if (left_right == RIGHT)
                 {
@@ -3609,6 +3608,7 @@ void realtime_proc(void *arg)
                     InverseKinematics(rightarm.jointPos, Tfinal, -M_PI/2, 0.1, M_PI/2, jointFinalBeta, angleFianl_beta_size);
                     if (angleFianl_beta_size[1] == 8)
                     {
+                        fprintf(fp, "%.10f,%.10f,%.10f,%.10f,%.10f,%.10f,%.10f,%.10f\n", jointFinalBeta[0], jointFinalBeta[1], jointFinalBeta[2], jointFinalBeta[3], jointFinalBeta[4], jointFinalBeta[5],jointFinalBeta[6],jointFinalBeta[7]);
                         for (i = 0; i< rightarm.motornum; i++)
                         {
                             rightarm.motor[i].itp_period_times = 40;

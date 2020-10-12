@@ -685,7 +685,7 @@ int forceUpdate(bodypart &arm, int type, double dt, int dir_enable[6])
             beta = FindBeta(angleNow);
  
             InverseKinematics(angleNow, temp, beta, 0, beta, angleExp, angleExpsize);
-            fprintf(fp, "%.10f,%.10f,%.10f,%.10f,%.10f,%.10f,%f,%f,%f,%f,%f,%f\n", arm.fctrl.totalP[0], arm.fctrl.totalP[1], arm.fctrl.totalP[2], arm.fctrl.totalP[3], arm.fctrl.totalP[4], arm.fctrl.totalP[5],arm.endft.ft[0],arm.endft.ft[1],arm.endft.ft[2],arm.endft.ft[3],arm.endft.ft[4],arm.endft.ft[5]);
+            // fprintf(fp, "%.10f,%.10f,%.10f,%.10f,%.10f,%.10f,%f,%f,%f,%f,%f,%f\n", arm.fctrl.totalP[0], arm.fctrl.totalP[1], arm.fctrl.totalP[2], arm.fctrl.totalP[3], arm.fctrl.totalP[4], arm.fctrl.totalP[5],arm.endft.ft[0],arm.endft.ft[1],arm.endft.ft[2],arm.endft.ft[3],arm.endft.ft[4],arm.endft.ft[5]);
         break;
 
         case 1:
