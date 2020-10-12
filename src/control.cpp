@@ -2599,6 +2599,7 @@ void realtime_proc(void *arg)
     int inToolFrame = 0;
     double pose07[6];
     double jointrefpos[7];
+    double beta_cmd;
 
     while (run)
     {
@@ -3510,18 +3511,26 @@ void realtime_proc(void *arg)
 
             case SPEED_L:
             {
-                if (cmd.param_cnt == 8)
+                if (cmd.param_cnt == 9)
                 {
-                    if (!CM_Atoi(cmd.param_list[0], left_right))
+                    if (!CM_Atoi(cmd.param_list[0], left_right))        // 第一位
                         break;
-                    if (!CM_Atoi(cmd.param_list[7], inToolFrame))
+                    if (!CM_Atoi(cmd.param_list[8], inToolFrame))       // 最后一位
                         break;
-                    for (i = 0; i< 6; i++)
+                    for (i = 0; i< 7; i++)
                     {
-                        if (!CM_Atof(cmd.param_list[i + 1], speed[i]))
-                            break;
-                        if (i < 3){
-                            speed[i] *= 1000;
+                        if(i < 6)
+                        {
+                            if (!CM_Atof(cmd.param_list[i + 1], speed[i]))
+                                break;
+                            if (i < 3){
+                                speed[i] *= 1000;
+                            }
+                        }
+                        else if (i == 6)
+                        {
+                            if (!CM_Atof(cmd.param_list[i + 1], beta_cmd))
+                                break;
                         }
                     }
                 }
@@ -3536,7 +3545,7 @@ void realtime_proc(void *arg)
                     leftarm.movefollowCnt = 0;
                     for (i = 0; i< 6; i++)
                     {
-                        delta[i] = speed[i] * 0.04;
+                        delta[i] = speed[i] * 0.04;     // 遥控器发送周期大致40ms
                     }
 
                     for (i = 0; i< leftarm.motornum; i++)
@@ -3561,7 +3570,7 @@ void realtime_proc(void *arg)
                     }
                     
                     /* 如果给定的是位姿 先求出位姿对应的关节角  静态大范围求解模式 β扫描间隔 0.01-3420us 0.1-520us*/
-                    InverseKinematics(leftarm.jointPos, Tfinal, -M_PI/2, 0.1, M_PI/2, jointFinalBeta, angleFianl_beta_size);
+                    InverseKinematics(leftarm.jointPos, Tfinal, beta_cmd - 0.02, 0.01, beta_cmd + 0.02, jointFinalBeta, angleFianl_beta_size);
                     if (angleFianl_beta_size[1] == 8)
                     {
                         for (i = 0; i< leftarm.motornum; i++)
@@ -3573,6 +3582,8 @@ void realtime_proc(void *arg)
                     else
                     {
                         printf("inverse kinematics failed\n");
+                        leftarm.state = IDLE;
+                        leftarm.motor[i].ref_position = leftarm.motor[i].act_position;
                     }
                 }
                 else if (left_right == RIGHT)
@@ -3581,7 +3592,7 @@ void realtime_proc(void *arg)
                     rightarm.movefollowCnt = 0;
                     for (i = 0; i< 6; i++)
                     {
-                        delta[i] = speed[i] * 0.04                                                                                                                                                         ;
+                        delta[i] = speed[i] * 0.04;         // 遥控器发送周期大致40ms                                                                                                                                                        ;
                     }
                     
                     for (i = 0; i< rightarm.motornum; i++)
@@ -3605,7 +3616,7 @@ void realtime_proc(void *arg)
                     }
                     
                     /* 如果给定的是位姿 先求出位姿对应的关节角  静态大范围求解模式 β扫描间隔 0.01-3420us 0.1-520us*/
-                    InverseKinematics(rightarm.jointPos, Tfinal, -M_PI/2, 0.1, M_PI/2, jointFinalBeta, angleFianl_beta_size);
+                    InverseKinematics(rightarm.jointPos, Tfinal, beta_cmd - 0.02, 0.01, beta_cmd + 0.02, jointFinalBeta, angleFianl_beta_size);
                     if (angleFianl_beta_size[1] == 8)
                     {
                         fprintf(fp, "%.10f,%.10f,%.10f,%.10f,%.10f,%.10f,%.10f,%.10f\n", jointFinalBeta[0], jointFinalBeta[1], jointFinalBeta[2], jointFinalBeta[3], jointFinalBeta[4], jointFinalBeta[5],jointFinalBeta[6],jointFinalBeta[7]);
@@ -3618,6 +3629,8 @@ void realtime_proc(void *arg)
                     else
                     {
                         printf("inverse kinematics failed\n");
+                        rightarm.state = IDLE;
+                        rightarm.motor[i].ref_position = rightarm.motor[i].act_position;
                     }
                 }
                 break;
