@@ -266,7 +266,7 @@ void ForwardKinematics(const double angle[7], double T0tool[16])
  *                 betaEnd：终止β值
  * 输出------------AngleByPlanning：逆运动学求解出的位姿对应关节角1x7
  */
-void InverseKinematics(const double angleInit[7], double expectPose_tool[16], double betaInit, double betaScanInterval, double betaEnd,
+void InverseKinematics(const double angleInit[7], const double angleBeforeInit[7],double expectPose_tool[16], double betaInit, double betaScanInterval, double betaEnd,
                        double angleByPlanning_data[], int angleByPlanning_size[2])
 {
     static const double dv4[3] = {-1.0, 0.0, 0.0};                       // 中间变量，垂直向上向量
@@ -311,7 +311,7 @@ void InverseKinematics(const double angleInit[7], double expectPose_tool[16], do
     int T01_inverse_tmp;
     double b_x_tmp;
     double b_T01_inverse[16];
-    double theta_new[7];
+    static double theta_new[14];
     double b_theta_new[8];
     evaluation_final = 0.0;
     double expectPose[16];
@@ -574,8 +574,8 @@ void InverseKinematics(const double angleInit[7], double expectPose_tool[16], do
                             theta_new[4] = theta_5;
                             theta_new[5] = length_BW;
                             theta_new[6] = theta_B;
-                            theta_B = 7.0 * fabs(theta_1 - angleInit[0]) + 6.0 * fabs(b_theta_2 - angleInit[1]) + 5.0 * fabs(theta_3 - angleInit[2]) + 4.0 * fabs(((3.0083086700768047 + theta_E) - 6.2831853071795862) - angleInit[3]) + 3.0 * fabs(theta_5 - angleInit[4]) + 2.0 * fabs(length_BW - angleInit[5]) + 1.0 * fabs(theta_B - angleInit[6]);
-
+                            theta_B = 1.0 * fabs(theta_1 + angleBeforeInit[0] - 2*angleInit[0]) + 1.0 * fabs(b_theta_2 + angleBeforeInit[1] - 2*angleInit[1]) + 1.0 * fabs(theta_3 + angleBeforeInit[2] - 2*angleInit[2]) + 1.0 * fabs(((3.0083086700768047 + theta_E) - 6.2831853071795862) + angleBeforeInit[3] - 2*angleInit[3]) + 1.0 * fabs(theta_5 + angleBeforeInit[4] - 2*angleInit[4]) + 1.0 * fabs(length_BW + angleBeforeInit[5] - 2*angleInit[5]) + 1.0 * fabs(theta_B + angleBeforeInit[6] - 2*angleInit[6]);
+                            
                             /* 将第一次循环后的评价值存入评价函数；第一次规划值存入theta_final，第二次及以后跳过此循环 */
                             if (flagOfFirstCirculation == 0)
                             {
