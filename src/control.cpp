@@ -46,7 +46,7 @@
 
 # define LEFT_ETHERCAT master[0], 0
 # define RIGHT_ETHERCAT master[1], 1
-# define HEAD_ETHERCAT master[2], 2
+# define HEAD_ETHERCAT master[1], 1
 # define CHASSIS_ETHERCAT master[3], 3
 /******************* CanOpen控制字 *******************/
 #define SM_trans2 0x0006
@@ -87,8 +87,8 @@
 
 // 使用电机或ethercat与否，调试需求
 #define ETHERCAT_MAX 4
-int ethercat_use[ETHERCAT_MAX] = {1, 1, 0, 1};
-int bodypart_use[5] = {1, 1, 0, 1, 1};
+int ethercat_use[ETHERCAT_MAX] = {0, 1, 0, 0};
+int bodypart_use[5] = {0, 0, 1, 0, 0};
 int leftarm_use_motor[8] = {1, 1, 1, 1, 1, 1, 1 ,1};
 int rightarm_use_motor[8] = {1, 1, 1, 1, 1, 1, 1, 1};
 int head_use_motor[3] = {1, 1, 1};
@@ -128,7 +128,7 @@ const uint8_t legMotoritpTimes[] = {1, 50, 50, 50, 50};
 // 每个关节电机的安装位置偏置
 const double leftoffsetAngle[7] = {5.9651863174665865, 0.123045712266, 1.43972209997, 0.594982742005, 4.422179, 3.798304, 0.882806};        // 单位弧度
 const double rightoffsetAngle[7] = {3.30862066301,0.994488607786,5.3351224575,2.12301850213,0.759043691692, 1.561895147609, 4.083897753344099};
-const double headoffsetAngle[3] = {0, 0, 0};
+const double headoffsetAngle[3] = {2.339393, 2.365974, 0};
 const double legoffsetAngle[5] = {0, 0, 0, 0, 0};
 
 // 解决相对编码器和绝对编码器的不同invert问题，同向为1，不同向为-1
@@ -776,9 +776,9 @@ int headInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * motor_po
         arm.motor_use[i] = head_use_motor[i];
 
         // 保护参数
-        arm.uplimit[i] = headUpLimit[i];
-        arm.downlimit[i] = headDownLimit[i];
-        arm.speedlimit[i] = headspeedlimit[i];
+        arm.uplimit[i] = headUpLimit[i] * arm.jointGear[i];
+        arm.downlimit[i] = headDownLimit[i]* arm.jointGear[i];
+        arm.speedlimit[i] = headspeedlimit[i]* arm.jointGear[i];
 
         if (head_use_motor[i] == 1){
             arm.motor[i].alias = motor_pos[addr].alias;
@@ -3111,21 +3111,6 @@ void realtime_proc(void *arg)
                         if (!CM_Atof(cmd.param_list[i + 1], poseFinal[i]))
                             break;
                     }
-                    TfromPose(poseFinal, Tfinal);
-                    /* 如果给定的是位姿 先求出位姿对应的关节角  静态大范围求解模式 β扫描间隔 0.01-3420us 0.1-520us*/
-                    InverseKinematics(leftarm.jointPos, Tfinal, -M_PI, 0.1, M_PI, jointFinalBeta, angleFianl_beta_size);
-                    // printf_d(jointFinalBeta, 8);
-                    
-                    if (angleFianl_beta_size[1] == 8){      // 逆运动学成功
-                        for (i = 0; i< 7; i++)
-                        {
-                            jointFinal[i] = jointFinalBeta[i];
-                        }
-                    }
-                    else
-                    {
-                        printf("Inverse Kinematics Failed\n");
-                    }
                 }
                 else if (cmd.param_cnt == 5)     // 给定头部关节角
                 {
@@ -3135,7 +3120,7 @@ void realtime_proc(void *arg)
                             break;
                     }
                 }
-                else if (cmd.param_cnt == 7)     // 给定头部关节角
+                else if (cmd.param_cnt == 7)     // 给定履带关节角
                 {
                     for (i = 0;i < 5; i++)
                     {
@@ -3149,11 +3134,30 @@ void realtime_proc(void *arg)
                 
                 if (left_right == LEFT)
                 {
+                    if (cmd.param_cnt == 8){
+                        TfromPose(poseFinal, Tfinal);
+                        /* 如果给定的是位姿 先求出位姿对应的关节角  静态大范围求解模式 β扫描间隔 0.01-3420us 0.1-520us*/
+                        InverseKinematics(leftarm.jointPos, Tfinal, -M_PI, 0.1, M_PI, jointFinalBeta, angleFianl_beta_size);
+                        // printf_d(jointFinalBeta, 8);
+                        
+                        if (angleFianl_beta_size[1] == 8){      // 逆运动学成功
+                            for (i = 0; i< 7; i++)
+                            {
+                                jointFinal[i] = jointFinalBeta[i];
+                            }
+                        }
+                        else
+                        {
+                            printf("Inverse Kinematics Failed\n");
+                            break;
+                        }
+                    }
+
                     for (i = 0; i< leftarm.motornum; i++)
                     {
                         leftarm.motor[i].itp_period_times = 10;
                     }
-                    // if (leftarm.state == IDLE)
+                    // if (leftarm.state == IDLE)       // 仿真不上伺服moveJ
                     {
                         printf("Busy:in movej\n");
                         moveJ(leftarm, jointFinal, speedRate);
@@ -3161,6 +3165,25 @@ void realtime_proc(void *arg)
                 }
                 else if (left_right == RIGHT)
                 {
+                    if (cmd.param_cnt == 8){
+                        TfromPose(poseFinal, Tfinal);
+                        /* 如果给定的是位姿 先求出位姿对应的关节角  静态大范围求解模式 β扫描间隔 0.01-3420us 0.1-520us*/
+                        InverseKinematics(rightarm.jointPos, Tfinal, -M_PI, 0.1, M_PI, jointFinalBeta, angleFianl_beta_size);
+                        // printf_d(jointFinalBeta, 8);
+                        
+                        if (angleFianl_beta_size[1] == 8){      // 逆运动学成功
+                            for (i = 0; i< 7; i++)
+                            {
+                                jointFinal[i] = jointFinalBeta[i];
+                            }
+                        }
+                        else
+                        {
+                            break;
+                            printf("Inverse Kinematics Failed\n");
+                        }
+                    }
+
                     for (i = 0; i< rightarm.motornum; i++)
                     {
                         rightarm.motor[i].itp_period_times = 10;
@@ -3173,18 +3196,26 @@ void realtime_proc(void *arg)
                 }
                 else if (left_right == HEAD)
                 {
-                    if (head.state == IDLE)
-                    {
-                        printf("Busy:in movej\n");
-                        moveJ(head, jointFinal, speedRate);
+                    if (cmd.param_cnt == 5){
+                        if (head.state == IDLE)
+                        {
+                            for (i = 0; i< head.motornum; i++)
+                            {
+                                head.motor[i].ref_position = head.jointPos[i] * head.jointGear[i];
+                            }
+                            printf("Busy:in movej\n");
+                            moveJ(head, jointFinal, speedRate);
+                        }
                     }
                 }
                 else if (left_right == LEG)
                 {
-                    if (leg.state == IDLE)
-                    {
-                        printf("Busy:in movej\n");
-                        moveJ(leg, jointFinal, speedRate);
+                    if (cmd.param_cnt == 7){
+                        if (leg.state == IDLE)
+                        {
+                            printf("Busy:in movej\n");
+                            moveJ(leg, jointFinal, speedRate);
+                        }
                     }
                 }
                 
