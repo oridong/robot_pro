@@ -257,6 +257,7 @@ typedef struct
     double rEquivalent[4];
 
     // 力控
+    double betaExp;
     ft_sensor endft;
     forceCtrl fctrl;
 

@@ -32,7 +32,7 @@ int UDP_init()
     bzero(&host_addr, sizeof(host_addr));            // 清空结构体内容
     host_addr.sin_family = AF_INET;                  // ipv4
     host_addr.sin_port = htons(ROBOT_PORT);          // 端口转换
-    host_addr.sin_addr.s_addr = inet_addr(ROBOT_IP); // 绑定网卡所有ip地址，INADDR_ANY为通配地址，值为0
+    host_addr.sin_addr.s_addr = htonl(INADDR_ANY); // 绑定网卡所有ip地址，INADDR_ANY为通配地址，值为0 inet_addr(ROBOT_IP)
 
     printf("Binding server to Robot %s:%d\n", ROBOT_IP, ROBOT_PORT);
     if (bind(sockfd, (struct sockaddr *)&host_addr, sizeof(host_addr)) != 0)
@@ -247,7 +247,7 @@ void robotSendFeedback(bodypart la, bodypart ra, bodypart head, bodypart leg, tr
     ra.motor[0].act_current,ra.motor[1].act_current,ra.motor[2].act_current,ra.motor[3].act_current,ra.motor[4].act_current,ra.motor[5].act_current,ra.motor[6].act_current,
     head.motor[0].act_current,head.motor[1].act_current,head.motor[2].act_current,
     leg.motor[0].act_current,leg.motor[2].act_current,leg.motor[1].act_current,leg.motor[3].act_current,leg.motor[4].act_current,
-    trc.motor[0].act_current,trc.motor[1].act_current,trc.motor[2].act_current,trc.motor[3].act_current,
+    trc.motor[0].act_current,trc.motor[1].act_current ,trc.motor[2].act_current,trc.motor[3].act_current,
     la.endft.ft[0],la.endft.ft[1],la.endft.ft[2],la.endft.ft[3],la.endft.ft[4],la.endft.ft[5],
     ra.endft.ft[0],ra.endft.ft[1],ra.endft.ft[2],ra.endft.ft[3],ra.endft.ft[4],ra.endft.ft[5]
     );

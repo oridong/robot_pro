@@ -642,7 +642,7 @@ void InverseKinematics(const double angleInit[7], double expectPose_tool[16], do
         angleByPlanning_size[1] = 0;
         return;
     }
-    if (abs(b_theta_2)<0.1)
+    if (b_theta_2<0.1 && b_theta_2 > -0.1)
     {
         printf("第2个关节规划角度即将为0！\n");
     }
@@ -652,7 +652,7 @@ void InverseKinematics(const double angleInit[7], double expectPose_tool[16], do
         angleByPlanning_size[1] = 0;
         return;
     }
-    if (abs(length_BW)<0.1)
+    if (length_BW <0.1 && length_BW > -0.1)
     {
         printf("第6个关节规划角度即将为0！\n");
     }

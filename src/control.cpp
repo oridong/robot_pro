@@ -46,7 +46,7 @@
 
 # define LEFT_ETHERCAT master[0], 0
 # define RIGHT_ETHERCAT master[1], 1
-# define HEAD_ETHERCAT master[1], 1
+# define HEAD_ETHERCAT master[2], 2
 # define CHASSIS_ETHERCAT master[3], 3
 /******************* CanOpen控制字 *******************/
 #define SM_trans2 0x0006
@@ -91,7 +91,7 @@ int ethercat_use[ETHERCAT_MAX] = {1, 1, 0, 1};
 int bodypart_use[5] = {1, 1, 0, 1, 1};
 int leftarm_use_motor[8] = {1, 1, 1, 1, 1, 1, 1 ,1};
 int rightarm_use_motor[8] = {1, 1, 1, 1, 1, 1, 1, 1};
-int head_use_motor[3] = {0, 0, 0};
+int head_use_motor[3] = {1, 1, 1};
 int track_use_motor[4] = {1, 1, 1, 1};
 int leg_use_motor[5] = {1, 1, 1, 1, 1};
 
@@ -104,7 +104,7 @@ static EC_position track_slave_pos[] = {{0, 4}, {0, 2}, {0, 6}, {0, 8}, {0, 0}, 
 // 每个电机的减速比参数，编码器cnt/输出角度弧度值
 const double leftarmGear[7] = {160.0 * 20480 * 2.0 / PI, 160.0 * 20480 * 2.0 / PI, 100.0 * 20480 * 2.0 / PI, 100.0 * 20480 * 2.0 / PI, 100.0 * 18000 * 2.0 / PI, 200 * 32768 * 2.0 / PI, 200 * 32768 * 2.0 / PI};
 const double rightarmGear[7] = {160.0 * 20480 * 2.0 / PI, 160.0 * 20480 * 2.0 / PI, 100.0 * 20480 * 2.0 / PI, 100.0 * 20480 * 2.0 / PI, 100.0 * 18000 * 2.0 / PI, 200 * 32768 * 2.0 / PI, 200 * 32768 * 2.0 / PI};
-const double headGear[3] = {100.0, 100.0, 100.0};
+const double headGear[3] = {100.0 * 1024 * 2.0 / PI, 100.0 * 1024 * 2.0 / PI, 100.0 * 1024 * 2.0 / PI};
 const double trackGear[4] = {6.0/radius/2.0/PI*524288, 6.0/radius/2.0/PI*524288, 6.0/radius/2.0/PI*524288, 6.0/radius/2.0/PI*524288};
 const double legGear[5] = {320.0 * 1250 * 2.0 / PI, 160.0 * 30720 * 2.0 /PI, 160.0 * 30720 * 2.0 /PI, 160.0 * 30720 * 2.0 /PI, 160.0 * 30720 * 2.0 /PI};
 
@@ -152,7 +152,7 @@ const uint8_t leg_brake[5] = {0, 0, 0, 0, 0};
 // 绝对编码器的一圈的cnt，用于计算初始角度
 const double leftAbsEncCnt[7] = {524288.0, 524288.0, 524288.0, 524288.0, 262144.0, 262144.0, 262144.0};
 const double rightAbsEncCnt[7] = {524288.0, 524288.0, 524288.0, 524288.0, 262144.0, 262144.0, 262144.0};
-const double headAbsEncCnt[3] = {-1, -1, -1};
+const double headAbsEncCnt[3] = {262144.0, 262144.0, 262144.0};
 const double legAbsEncCnt[5] = {-1, -1, -1, -1, -1};
 
 // 关节限位参数，up为最大值， down为最小值
@@ -207,13 +207,13 @@ double leg_fillter_acclimit[5] = {2 * PI, 5 * PI, 5 * PI, 5 * PI, 5 * PI};
 float left_CL[7] = {6.0, 6.0, 3.0, 3.0, 1.5, 1.5, 1.5};
 float right_CL[7] = {6.0, 6.0, 3.0, 3.0, 1.5, 1.5, 1.5};
 float head_CL[3] = {1.5, 1.5, 1.5};
-float track_CL[4] = {10.0, 10.0, 10.0, 10.0};
+float track_CL[4] = {20.0, 20.0, 20.0, 20.0};
 float leg_CL[5] = {10.0, 20.0, 20.0, 20.0, 20.0};
 
 float left_PL[7] = {9.0, 9.0, 9.0, 9.0, 6.0, 6.0, 6.0};
 float right_PL[7] = {9.0, 9.0, 9.0, 9.0, 6.0, 6.0, 6.0};
-float head_PL[3] = {6.0, 6.0, 6.0};
-float track_PL[4] = {20.0, 20.0, 20.0, 20.0};
+float head_PL[3] = {4.0, 4.0, 4.0};
+float track_PL[4] = {30.0, 30.0, 30.0, 30.0};
 float leg_PL[5] = {20.0, 40.0, 40.0, 40.0, 40.0};
 
 // 变量声明
@@ -511,17 +511,17 @@ int leftarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * motor
             // 保护性电流
             uint8_t *data2 = (uint8_t *)&(left_CL[i]);
             data_size = sizeof(left_CL[i]);
-            if (!ecrt_master_sdo_download(m, arm.motor[i].buspos, 0x303f, 1, data2, data_size, &abort_code)) // 写SDO，0x2F41:0 16-19位配置为4 即可开启模拟二通道输入
+            if (ecrt_master_sdo_download(m, arm.motor[i].buspos, 0x303f, 1, data2, data_size, &abort_code)) // 写SDO，0x2F41:0 16-19位配置为4 即可开启模拟二通道输入
             {
-                fprintf(stderr, "cl change success.\n");
+                fprintf(stderr, "cl change failed.\n");
             }
 
             // 峰值电流
             uint8_t *data4 = (uint8_t *)&(left_PL[i]);
             data_size = sizeof(left_PL[i]);
-            if (!ecrt_master_sdo_download(m, arm.motor[i].buspos, 0x3191, 1, data4, data_size, &abort_code)) // 写SDO，0x2F41:0 16-19位配置为4 即可开启模拟二通道输入
+            if (ecrt_master_sdo_download(m, arm.motor[i].buspos, 0x3191, 1, data4, data_size, &abort_code)) // 写SDO，0x2F41:0 16-19位配置为4 即可开启模拟二通道输入
             {
-                fprintf(stderr, "pl change success.\n");
+                fprintf(stderr, "pl change failed.\n");
             }
 
             // =========================================================================== //
@@ -683,17 +683,17 @@ int rightarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * moto
             // 保护性电流
             uint8_t *data2 = (uint8_t *)&(right_CL[i]);
             data_size = sizeof(right_CL[i]);
-            if (!ecrt_master_sdo_download(m, arm.motor[i].buspos, 0x303f, 1, data2, data_size, &abort_code)) // 写SDO，0x2F41:0 16-19位配置为4 即可开启模拟二通道输入
+            if (ecrt_master_sdo_download(m, arm.motor[i].buspos, 0x303f, 1, data2, data_size, &abort_code)) // 写SDO，0x2F41:0 16-19位配置为4 即可开启模拟二通道输入
             {
-                fprintf(stderr, "cl change success.\n");
+                fprintf(stderr, "cl change failed.\n");
             }
 
             // 峰值电流
             uint8_t *data4 = (uint8_t *)&(right_PL[i]);
             data_size = sizeof(right_PL[i]);
-            if (!ecrt_master_sdo_download(m, arm.motor[i].buspos, 0x3191, 1, data4, data_size, &abort_code)) // 写SDO，0x2F41:0 16-19位配置为4 即可开启模拟二通道输入
+            if (ecrt_master_sdo_download(m, arm.motor[i].buspos, 0x3191, 1, data4, data_size, &abort_code)) // 写SDO，0x2F41:0 16-19位配置为4 即可开启模拟二通道输入
             {
-                fprintf(stderr, "pl change success.\n");
+                fprintf(stderr, "pl change failed.\n");
             }
 
             // =========================================================================== //
@@ -829,17 +829,17 @@ int headInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * motor_po
             // 保护性电流
             uint8_t *data2 = (uint8_t *)&(head_CL[i]);
             data_size = sizeof(head_CL[i]);
-            if (!ecrt_master_sdo_download(m, arm.motor[i].buspos, 0x303f, 1, data2, data_size, &abort_code)) // 写SDO，0x2F41:0 16-19位配置为4 即可开启模拟二通道输入
+            if (ecrt_master_sdo_download(m, arm.motor[i].buspos, 0x303f, 1, data2, data_size, &abort_code)) // 写SDO，0x2F41:0 16-19位配置为4 即可开启模拟二通道输入
             {
-                fprintf(stderr, "cl change success.\n");
+                fprintf(stderr, "cl change failed.\n");
             }
 
             // 峰值电流
             uint8_t *data4 = (uint8_t *)&(head_PL[i]);
             data_size = sizeof(head_PL[i]);
-            if (!ecrt_master_sdo_download(m, arm.motor[i].buspos, 0x3191, 1, data4, data_size, &abort_code)) // 写SDO，0x2F41:0 16-19位配置为4 即可开启模拟二通道输入
+            if (ecrt_master_sdo_download(m, arm.motor[i].buspos, 0x3191, 1, data4, data_size, &abort_code)) // 写SDO，0x2F41:0 16-19位配置为4 即可开启模拟二通道输入
             {
-                fprintf(stderr, "pl change success.\n");
+                fprintf(stderr, "pl change failed.\n");
             }
 
             // =========================================================================== //
@@ -1091,6 +1091,7 @@ int chassisInit(bodypart &arm, trackpart & trc, ec_master_t *m, int dm_index, EC
             target_size = 4;
             if (i == 0)
             {
+                printf("Reading 200 times yao joint\n");
                 for (j =0; j< 200; j++)
                 {
                     if (ecrt_master_sdo_upload(m, arm.motor[i].buspos, 0x2203, 0, result, target_size, &result_size, &abort_code)) // 读SDO， 0x2F41:0 为用户应用配置字
@@ -1099,7 +1100,7 @@ int chassisInit(bodypart &arm, trackpart & trc, ec_master_t *m, int dm_index, EC
                         return 0;
                     }
                     arm.startJointAngle[i] = midvfillter((double)(*((uint32_t *)result)), 0, 200);
-                    printf("%d\n",j);
+                    // printf("%d\n",j);
                 }
                 arm.startJointAngle[i] = (arm.startJointAngle[i] - 2000.6) * 0.003158;
             }
@@ -2085,7 +2086,7 @@ void ctrlArmMotor(bodypart &arm)
     }
 
     // printf("%f\n",arm.motor[0].exp_position);
-    // printf("%.2f,%.2f,%.2f\n", double(arm.motor[1].act_position)/arm.jointGear[1]*RAD2DEG,  arm.motor[1].exp_position/arm.jointGear[1]*RAD2DEG, arm.motor[i].exp_position + arm.motor[1].start_pos - (arm.startJointAngle[1] - arm.offsetAngle[1]) * arm.jointGear[1]);
+    //printf("%.2f,%.2f,%.2f\n", double(arm.motor[1].ref_position)/arm.jointGear[1]*RAD2DEG,  arm.motor[2].ref_position/arm.jointGear[2]*RAD2DEG, arm.motor[3].ref_position/ arm.jointGear[3] * RAD2DEG);
 
     // jointProtection(arm);
 
@@ -2155,7 +2156,7 @@ void ctrlHeadMotor(bodypart &head)
                 {
                     if (head.motor[i].servo_cmd == 1)
                     {
-                        if (head.motor[i].ref_position > head.uplimit[i] || head.motor[i].ref_position < head.downlimit[i])
+                        if (head.motor[i].exp_position > head.uplimit[i] || head.motor[i].exp_position < head.downlimit[i])
                         {
                             if (head.motor[i].servo_first == 1){
                                 head.motor[i].servo_cmd = 0;
@@ -2173,13 +2174,18 @@ void ctrlHeadMotor(bodypart &head)
                         {
                             ret = changeOneMotorState(head, i, OPERATION_ENABLE);
                         }
+
                         if (ret)
                         {
-                            head.motor[i].exp_position_kdm_v = 0;
-                            head.motor[i].exp_position_kdm = head.motor[i].act_position;
-                            head.motor[i].plan_cnt = 0;
-                            head.motor[i].plan.clear();
-                            head.motor[i].servo_state = 1;
+                            if ( head.motor[i].servo_state == 0){
+                                
+                                head.motor[i].exp_position_kdm_v = 0;
+                                head.motor[i].exp_position_kdm = head.motor[i].act_position;
+                                head.motor[i].exp_position = head.motor[i].act_position;
+                                head.motor[i].plan_cnt = 0;
+                                head.motor[i].plan.clear();
+                                head.motor[i].servo_state = 1;
+                            }
                         }
                     }
                     else if (head.motor[i].servo_cmd == 0)
@@ -2258,8 +2264,10 @@ void ctrlHeadMotor(bodypart &head)
 
         /********************** 填写指令，等待发送 **********************/  // ！！！！！！！！！
         if (head.motor_use[i] == 1){
-            EC_WRITE_S32(domain[head.dm_index].domain_pd + head.motor[i].offset.target_position, int(head.motor[i].this_send));
+            EC_WRITE_S32(domain[head.dm_index].domain_pd + head.motor[i].offset.target_position, int(head.dir[i] * head.motor[i].this_send)+ head.motor[i].start_pos - int(head.dir[i] * head.startJointAngle[i] * head.jointGear[i]));
+            // printf("%f, %f, %d\n",head.jointPos[i], head.motor[i].exp_position, (int)head.motor[i].this_send + head.motor[i].start_pos - int(head.startJointAngle[i] * head.jointGear[i]));
         }
+        head.motor[i].last_actposition = head.motor[i].act_position;
     }
 }
 
@@ -3543,9 +3551,10 @@ void realtime_proc(void *arg)
                 {
                     leftarm.state = ON_MOVE_FOLLOW;
                     leftarm.movefollowCnt = 0;
+		    leftarm.betaExp = beta_cmd;
                     for (i = 0; i< 6; i++)
                     {
-                        delta[i] = speed[i] * 0.04;     // 遥控器发送周期大致40ms
+                        delta[i] = speed[i] * 0.02;     // 遥控器发送周期大致40ms
                     }
 
                     for (i = 0; i< leftarm.motornum; i++)
@@ -3554,7 +3563,7 @@ void realtime_proc(void *arg)
                     }
                     ForwardKinematics(jointrefpos, T07);
 
-                    printf_d(jointrefpos,7);
+                    //printf_d(jointrefpos,7);
                     if (inToolFrame == 1){
                         TfromPose(delta, Tdelta);
                         matrixMultiply(T07, 4, 4, Tdelta, 4, 4, Tfinal);
@@ -3590,9 +3599,10 @@ void realtime_proc(void *arg)
                 {
                     rightarm.state = ON_MOVE_FOLLOW;
                     rightarm.movefollowCnt = 0;
+		    rightarm.betaExp = beta_cmd;
                     for (i = 0; i< 6; i++)
                     {
-                        delta[i] = speed[i] * 0.04;         // 遥控器发送周期大致40ms                                                                                                                                                        ;
+                        delta[i] = speed[i] * 0.02;         // 遥控器发送周期大致40ms                                                                                                                                                        ;
                     }
                     
                     for (i = 0; i< rightarm.motornum; i++)
@@ -3619,7 +3629,7 @@ void realtime_proc(void *arg)
                     InverseKinematics(rightarm.jointPos, Tfinal, beta_cmd - 0.02, 0.01, beta_cmd + 0.02, jointFinalBeta, angleFianl_beta_size);
                     if (angleFianl_beta_size[1] == 8)
                     {
-                        fprintf(fp, "%.10f,%.10f,%.10f,%.10f,%.10f,%.10f,%.10f,%.10f\n", jointFinalBeta[0], jointFinalBeta[1], jointFinalBeta[2], jointFinalBeta[3], jointFinalBeta[4], jointFinalBeta[5],jointFinalBeta[6],jointFinalBeta[7]);
+                        // fprintf(fp, "%.10f,%.10f,%.10f,%.10f,%.10f,%.10f,%.10f,%.10f\n", jointFinalBeta[0], jointFinalBeta[1], jointFinalBeta[2], jointFinalBeta[3], jointFinalBeta[4], jointFinalBeta[5],jointFinalBeta[6],jointFinalBeta[7]);
                         for (i = 0; i< rightarm.motornum; i++)
                         {
                             rightarm.motor[i].itp_period_times = 40;

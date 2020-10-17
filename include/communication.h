@@ -8,18 +8,18 @@
 # include "control.h"
 /******************* 网络参数 *******************/
 
-# define CTRL_IP "192.168.8.3" 
+# define CTRL_IP "10.8.0.2" 
 # define CTRL_PORT 8001
 
 # define Nvidia_IP "192.168.50.15" 
 # define Nvidia_PORT 8002
 
-# define ROBOT_IP "192.168.50.21" //"10.1.76.247"// 192.168.50.14  192.168.8.11
+# define ROBOT_IP "10.8.0.3" //"10.1.76.247"// 192.168.50.14  192.168.8.11
 # define ROBOT_PORT 8000
 
-# define RECV_BUF_SIZE 512  // 接收缓存区大�??
-# define CMD_SIZE 30        // 命令字大�??
-# define PARAM_SIZE 200     // 后跟随参数大�??
+# define RECV_BUF_SIZE 512  // 接收缓存区大�??
+# define CMD_SIZE 30        // 命令字大�??
+# define PARAM_SIZE 200     // 后跟随参数大�??
 # define PARAM_LIST_SIZE 20 // 每个参数大小
 
 # define HEADL 0
@@ -57,7 +57,7 @@ const char cmd_table[][CMD_SIZE] = {
     "moveTest",
     "lampOn",
     "lampOff",
-    "speedL".
+    "speedL",
     "teachEn",
     "teachDis"
 };
