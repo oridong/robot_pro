@@ -266,7 +266,7 @@ void ForwardKinematics(const double angle[7], double T0tool[16])
  *                 betaEnd：终止β值
  * 输出------------AngleByPlanning：逆运动学求解出的位姿对应关节角1x7
  */
-void InverseKinematics(const double angleInit[7], const double angleBeforeInit[7],double expectPose_tool[16], double betaInit, double betaScanInterval, double betaEnd,
+void InverseKinematics(const double angleInit[7] ,double expectPose_tool[16], double betaInit, double betaScanInterval, double betaEnd,
                        double angleByPlanning_data[], int angleByPlanning_size[2])
 {
     static const double dv4[3] = {-1.0, 0.0, 0.0};                       // 中间变量，垂直向上向量
@@ -315,8 +315,14 @@ void InverseKinematics(const double angleInit[7], const double angleBeforeInit[7
     double b_theta_new[8];
     evaluation_final = 0.0;
     double expectPose[16];
+    double angleBeforeInit[7];
 
     flagOfFirstCirculation = 0; /* β取值循环的第一次循环标志，用于初始化评价值及最优估计值 */
+
+    for (i = 0; i< 7; i++)
+    {
+        angleBeforeInit[i] = angleInit[i];
+    }
 
     double Ttool7[16] = {0, 0, 1, 0, 0, 1, 0, 0, -1, 0, 0, 0, 0, 0, -126.0, 1};
     matrixMultiply(expectPose_tool, 4, 4, Ttool7, 4, 4, expectPose);
