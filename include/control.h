@@ -84,6 +84,7 @@ typedef struct
     unsigned int act_velocity;
     unsigned int status_word;
     unsigned int current;
+    unsigned int voltage;
 } Offset_vel;
 
 
@@ -151,6 +152,8 @@ typedef struct
     // 模拟量为4096格数单位
     uint32_t ain;       // 模拟输入2 
 
+    double CL;
+
     // s曲线插补
     splan sp;
     kdmparam kdm;
@@ -180,9 +183,12 @@ typedef struct
     int act_velocity; /* actual velocity in cnt */
     int act_position;
     double act_current; /* actual current */
+    double act_voltage; /* actual voltage */
     double exp_velocity;   /* expect velocity in cnt */
     double ref_velocity;
     double this_send;
+
+    double CL;
 
     splan sp;
     std::vector<double> plan;

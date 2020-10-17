@@ -237,7 +237,7 @@ void robotSendFeedback(bodypart la, bodypart ra, bodypart head, bodypart leg, tr
     }
 
     char send_buf[2048] = "";
-    sprintf(send_buf, " %.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,\n  ", 
+    sprintf(send_buf, " %.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,\n  ", 
     
     buf[0],buf[1],buf[2],buf[3],buf[4],buf[5],buf[6],
     buf[7],buf[8],buf[9],buf[10],buf[11],buf[12],buf[13],
@@ -249,7 +249,8 @@ void robotSendFeedback(bodypart la, bodypart ra, bodypart head, bodypart leg, tr
     leg.motor[0].act_current,leg.motor[2].act_current,leg.motor[1].act_current,leg.motor[3].act_current,leg.motor[4].act_current,
     trc.motor[0].act_current,trc.motor[1].act_current ,trc.motor[2].act_current,trc.motor[3].act_current,
     la.endft.ft[0],la.endft.ft[1],la.endft.ft[2],la.endft.ft[3],la.endft.ft[4],la.endft.ft[5],
-    ra.endft.ft[0],ra.endft.ft[1],ra.endft.ft[2],ra.endft.ft[3],ra.endft.ft[4],ra.endft.ft[5]
+    ra.endft.ft[0],ra.endft.ft[1],ra.endft.ft[2],ra.endft.ft[3],ra.endft.ft[4],ra.endft.ft[5],
+    trc.motor[0].act_voltage
     );
     send_buf[strlen(send_buf) - 1] = '\0';
 
