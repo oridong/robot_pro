@@ -8,13 +8,13 @@
 # include "control.h"
 /******************* 网络参数 *******************/
 
-# define CTRL_IP "10.8.0.2" 
+# define CTRL_IP "192.168.50.3" 
 # define CTRL_PORT 8001
 
-# define Nvidia_IP "192.168.50.15" 
+# define Nvidia_IP "192.168.50.2" 
 # define Nvidia_PORT 8002
 
-# define ROBOT_IP "10.8.0.3" //"10.1.76.247"// 192.168.50.14  192.168.8.11
+# define ROBOT_IP "192.168.50.21" //"10.1.76.247"// 192.168.50.14  192.168.8.11
 # define ROBOT_PORT 8000
 
 # define RECV_BUF_SIZE 512  // 接收缓存区大�??

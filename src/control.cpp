@@ -88,9 +88,9 @@
 // 使用电机或ethercat与否，调试需求
 #define ETHERCAT_MAX 4
 int ethercat_use[ETHERCAT_MAX] = {1, 1, 0, 1};
-int bodypart_use[5] = {1, 1, 0, 1, 1};
+int bodypart_use[5] = {1, 1,  0, 1, 1};
 int leftarm_use_motor[8] = {1, 1, 1, 1, 1, 1, 1 ,1};
-int rightarm_use_motor[8] = {1, 1, 1, 1, 1, 1, 1, 1};
+int rightarm_use_motor[8] = {1, 1, 1, 1, 1, 0, 0, 0};
 int head_use_motor[3] = {0, 0, 1};
 int track_use_motor[4] = {1, 1, 1, 1};
 int leg_use_motor[5] = {1, 1, 1, 1, 1};
@@ -207,14 +207,14 @@ double leg_fillter_acclimit[5] = {2 * PI, 5 * PI, 5 * PI, 5 * PI, 5 * PI};
 float left_CL[7] = {6.0, 6.0, 3.0, 3.0, 1.5, 1.5, 1.5};
 float right_CL[7] = {6.0, 6.0, 3.0, 3.0, 1.5, 1.5, 1.5};
 float head_CL[3] = {1.5, 1.5, 1.5};
-float track_CL[4] = {20.0, 20.0, 20.0, 20.0};
-float leg_CL[5] = {10.0, 20.0, 20.0, 20.0, 20.0};
+float track_CL[4] = {25.0, 35.0, 35.0, 25.0};
+float leg_CL[5] = {10.0, 25.0, 25.0 , 25.0, 25.0};
 
 float left_PL[7] = {9.0, 9.0, 9.0, 9.0, 6.0, 6.0, 6.0};
 float right_PL[7] = {9.0, 9.0, 9.0, 9.0, 6.0, 6.0, 6.0};
 float head_PL[3] = {4.0, 4.0, 4.0};
-float track_PL[4] = {30.0, 30.0, 30.0, 30.0};
-float leg_PL[5] = {20.0, 40.0, 40.0, 40.0, 40.0};
+float track_PL[4] = {50.0, 60.0, 60.0, 50.0};
+float leg_PL[5] = {20.0, 50.0, 50.0, 50.0, 50.0};
 
 // 变量声明
 bodypart leftarm;
@@ -895,6 +895,14 @@ int chassisInit(bodypart &arm, trackpart & trc, ec_master_t *m, int dm_index, EC
     trc.motornum = 4;          
     trc.state = DISABLE;
 
+    uint8_t result[4];
+    size_t target_size = 4;
+    size_t result_size;
+    uint32_t abort_code;
+    size_t data_size;
+
+    float duration = 3.0;
+
     // 初始化履带电机
     for (i = 0; i < trc.motornum; i++)
     {
@@ -949,13 +957,31 @@ int chassisInit(bodypart &arm, trackpart & trc, ec_master_t *m, int dm_index, EC
             }
 
             // =========================================================================== //
-            size_t data_size;
-            uint32_t abort_code;
+            if (ecrt_master_sdo_upload(m, trc.motor[i].buspos, 0x303f, 1, result, target_size, &result_size, &abort_code)) // 读SDO， 0x2F41:0 为用户应用配置字
+            {
+                fprintf(stderr, "Failed to get sdo data.\n");
+                return 0;
+            }
+            printf("%d,CL[1]:%f\n", i, *((float *)result));
+
+            if (ecrt_master_sdo_upload(m, trc.motor[i].buspos, 0x3191, 1, result, target_size, &result_size, &abort_code)) // 读SDO， 0x2F41:0 为用户应用配置字
+            {
+                fprintf(stderr, "Failed to get sdo data.\n");
+                return 0;
+            }
+            printf("%d,PL[1]:%f\n", i, *((float *)result));
+
+            if (ecrt_master_sdo_upload(m, trc.motor[i].buspos, 0x3191, 2, result, target_size, &result_size, &abort_code)) // 读SDO， 0x2F41:0 为用户应用配置字
+            {
+                fprintf(stderr, "Failed to get sdo data.\n");
+                return 0;
+            }
+            printf("%d,PL[2]:%f\n", i, *((float *)result));
 
             // 保护性电流
             uint8_t *data2 = (uint8_t *)&(track_CL[i]);
             data_size = sizeof(track_CL[i]);
-            if (ecrt_master_sdo_download(m, arm.motor[i].buspos, 0x303f, 1, data2, data_size, &abort_code)) // 写SDO
+            if (ecrt_master_sdo_download(m, trc.motor[i].buspos, 0x303f, 1, data2, data_size, &abort_code)) // 写SDO
             {
                 fprintf(stderr, "cl change failed.\n");
             }
@@ -963,11 +989,18 @@ int chassisInit(bodypart &arm, trackpart & trc, ec_master_t *m, int dm_index, EC
             // 峰值电流
             uint8_t *data4 = (uint8_t *)&(track_PL[i]);
             data_size = sizeof(track_PL[i]);
-            if (ecrt_master_sdo_download(m, arm.motor[i].buspos, 0x3191, 1, data4, data_size, &abort_code)) // 写SDO
+            if (ecrt_master_sdo_download(m, trc.motor[i].buspos, 0x3191, 1, data4, data_size, &abort_code)) // 写SDO
             {
                 fprintf(stderr, "pl change failed.\n");
             }
 
+            // 超额定时间
+            uint8_t *data5 = (uint8_t *)(&duration);
+            data_size = sizeof(duration);
+            if (ecrt_master_sdo_download(m, trc.motor[i].buspos, 0x3191, 2, data5, data_size, &abort_code)) // 写SDO
+            {
+                fprintf(stderr, "duration change failed.\n");
+            }
             // =========================================================================== //
         }
         
@@ -1043,10 +1076,6 @@ int chassisInit(bodypart &arm, trackpart & trc, ec_master_t *m, int dm_index, EC
 
             // ==================== 读写 SDO，配置0x2f41:0x00, 加入AD-input2到PDO中 ======================== //
             // 1、读入0x2f41:0x00 当前的值
-            uint8_t result[4];
-            size_t target_size = 4;
-            size_t result_size;
-            uint32_t abort_code;
 
             if (ecrt_master_sdo_upload(m, arm.motor[i].buspos, 0x2F41, 0, result, target_size, &result_size, &abort_code)) // 读SDO， 0x2F41:0 为用户应用配置字
             {
@@ -1071,6 +1100,27 @@ int chassisInit(bodypart &arm, trackpart & trc, ec_master_t *m, int dm_index, EC
             }
 
             // =========================================================================== //
+            if (ecrt_master_sdo_upload(m, arm.motor[i].buspos, 0x303f, 1, result, target_size, &result_size, &abort_code)) // 读SDO， 0x2F41:0 为用户应用配置字
+            {
+                fprintf(stderr, "Failed to get sdo data.\n");
+                return 0;
+            }
+            printf("%d,CL[1]:%f\n", i, *((float *)result));
+
+            if (ecrt_master_sdo_upload(m, arm.motor[i].buspos, 0x3191, 1, result, target_size, &result_size, &abort_code)) // 读SDO， 0x2F41:0 为用户应用配置字
+            {
+                fprintf(stderr, "Failed to get sdo data.\n");
+                return 0;
+            }
+            printf("%d,PL[1]:%f\n", i, *((float *)result));
+
+            if (ecrt_master_sdo_upload(m, arm.motor[i].buspos, 0x3191, 2, result, target_size, &result_size, &abort_code)) // 读SDO， 0x2F41:0 为用户应用配置字
+            {
+                fprintf(stderr, "Failed to get sdo data.\n");
+                return 0;
+            }
+            printf("%d,PL[2]:%f\n", i, *((float *)result));
+            
             // 保护性电流
             uint8_t *data2 = (uint8_t *)&(leg_CL[i]);
             data_size = sizeof(leg_CL[i]);
@@ -1087,6 +1137,14 @@ int chassisInit(bodypart &arm, trackpart & trc, ec_master_t *m, int dm_index, EC
             {
                 fprintf(stderr, "pl change failed.\n");
                 return 0;
+            }
+
+            // 超额定时间
+            uint8_t *data5 = (uint8_t *)(&duration);
+            data_size = sizeof(duration);
+            if (ecrt_master_sdo_download(m, arm.motor[i].buspos, 0x3191, 2, data5, data_size, &abort_code)) // 写SDO
+            {
+                fprintf(stderr, "duration change failed.\n");
             }
             // =========================================================================== //
 
@@ -1734,7 +1792,8 @@ void readChassisData(bodypart & leg, trackpart & trc)
             leg.motor[i].exp_position = leg.motor[i].act_position;
             leg.motor[i].exp_position_kdm = leg.motor[i].act_position;
             leg.motor[i].exp_position_kdm_v = 0;
-            leg.motor[i].first_time = 1;
+            leg.motor[i].ref_position = leg.motor[i].act_position;
+	    leg.motor[i].first_time = 1;
         }
         leg.jointPos[i] = (double)(leg.motor[i].act_position)/ leg.jointGear[i];
     }
@@ -2491,6 +2550,7 @@ void ctrlTrackMotor(trackpart &trc)
                     if (trc.motor[i].servo_cmd == 1 && trc.motor[i].servo_state == 0)
                     {
                         trc.motor[i].exp_velocity = 0; // 清除遗留目标位置
+			trc.motor[i].plan.clear();
                         ret = changeOneTrackMotorState(trc, i, OPERATION_ENABLE);
                         if (ret)
                             trc.motor[i].servo_state = 1;
@@ -2559,7 +2619,7 @@ void ctrlTrackMotor(trackpart &trc)
         /********************** 填写指令，等待发送 **********************/ // ！！！！！！！！！
         EC_WRITE_S32(domain[trc.dm_index].domain_pd + trc.motor[i].offset.target_velocity, int(trc.motor[i].this_send));
     }
-    // printf("%f, %f, %f, %f\n", trc.motor[0].exp_velocity, trc.motor[1].exp_velocity, trc.motor[2].exp_velocity, trc.motor[3].exp_velocity);
+    fprintf(fp, "%f, %f, %f, %d\n", trc.motor[1].exp_velocity, trc.chassisVel_cmd[0], trc.chassisVel_cmd[1], int(trc.motor[i].this_send) );
    
 
 }
@@ -3709,6 +3769,7 @@ void realtime_proc(void *arg)
                     rightarm.teachEn = 1;
                     printf("rightarm teach enable\n");
                 }
+		break;
             }
 
             case TEACH_DIS:
@@ -3731,6 +3792,7 @@ void realtime_proc(void *arg)
                     rightarm.teachEn = 0;
                     printf("rightarm teach disable\n");
                 }
+break;
             }
 
             case LAMP_ON:
