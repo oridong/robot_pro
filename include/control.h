@@ -56,6 +56,8 @@ typedef struct
     unsigned int status_word;
     unsigned int ain;
     unsigned int current;
+    unsigned int voltage;
+    unsigned int demond_position;
 } Offset;
 
 /* 力传感器EtherCAT，Pdo地址偏移  */
@@ -141,6 +143,7 @@ typedef struct
     // 电机变量的所有值均为cnt单位
     int act_position; /* actual position */
     int last_actposition; /* actual position */
+    double act_voltage; /* actual voltage */
     double act_current; /* actual current */
     int start_pos;
     double exp_position;   /* expect position */
@@ -148,6 +151,7 @@ typedef struct
     double exp_position_kdm_v;
     double ref_position;
     double this_send;
+    int32_t demond_position;
 
     // 模拟量为4096格数单位
     uint32_t ain;       // 模拟输入2 
@@ -277,6 +281,8 @@ typedef struct
     int state;
     int teachEn;
     uint16_t movefollowCnt;
+    double time_elapsed; // ms
+    double act_voltage;
 
 }bodypart;
 

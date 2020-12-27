@@ -87,9 +87,9 @@
 
 // 使用电机或ethercat与否，调试需求
 #define ETHERCAT_MAX 4
-int ethercat_use[ETHERCAT_MAX] = {1, 1, 0, 1};
-int bodypart_use[5] = {1, 1,  0, 1, 1};
-int leftarm_use_motor[8] = {1, 1, 1, 1, 1, 1, 1 ,1};
+int ethercat_use[ETHERCAT_MAX] = {1, 0, 0, 0};
+int bodypart_use[5] = {1, 0,  0, 0, 0};
+int leftarm_use_motor[8] = {1, 0, 0, 0, 0, 0, 0, 0};
 int rightarm_use_motor[8] = {1, 1, 1, 1, 1, 0, 0, 0};
 int head_use_motor[3] = {0, 0, 1};
 int track_use_motor[4] = {1, 1, 1, 1};
@@ -227,6 +227,7 @@ double alpha[itp_window] = {0.0f};
 double alpha_sum = 0.0f;
 std::vector<double> fil[100];
 RT_TASK my_task;
+int count = 0;
 
 FILE *fp;
 
@@ -255,7 +256,9 @@ ec_pdo_entry_info_t spe_pos[] = {  /* Slave Pdo Entries*/
     {0x60fd, 0x00, 32}, /* Digital inputs */
     {0x6041, 0x00, 16}, /* Statusword */
     {0x2203, 0x00, 32}, /* Analog Input*/
-    {0x6078, 0x00, 16}  /* current actual value*/
+    {0x6078, 0x00, 16}, /* current actual value*/
+    {0x6079, 0x00, 32}, /* voltage actual value*/
+    {0x6062, 0x00, 32}  /* Target demond position*/
 };
 
 ec_pdo_info_t sp_pos[] = {  /* slave_pdos */
@@ -263,14 +266,16 @@ ec_pdo_info_t sp_pos[] = {  /* slave_pdos */
     {0x160B, 1, spe_pos + 3}, /* RPDO1 Mapping */
     {0x1a00, 3, spe_pos + 4}, /* TPDO1 Mapping */
     {0x1A24, 1, spe_pos + 7}, /* TPDO1 Mapping */
-    {0x1A1F, 1, spe_pos + 8}  /* TPDO1 Mapping */
+    {0x1A1F, 1, spe_pos + 8}, /* TPDO1 Mapping */
+    {0x1A18, 1, spe_pos + 9},  /* TPDO1 Mapping */
+    {0x1A0C, 1, spe_pos + 10}  /* TPDO1 Mapping */
 };
 
 ec_sync_info_t ss_pos[] = { /* slave_sync */ 
     {0, EC_DIR_OUTPUT, 0, NULL, EC_WD_DISABLE},
     {1, EC_DIR_INPUT, 0, NULL, EC_WD_DISABLE},
     {2, EC_DIR_OUTPUT, 2, sp_pos + 0, EC_WD_ENABLE},
-    {3, EC_DIR_INPUT, 3, sp_pos + 2, EC_WD_DISABLE},
+    {3, EC_DIR_INPUT, 5, sp_pos + 2, EC_WD_DISABLE},
     {0xff}
 };
 
@@ -457,6 +462,8 @@ int leftarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * motor
             ec_pdo_entry_reg_t temp7 = {arm.motor[i].alias, arm.motor[i].buspos, ELMO_GOLD, spe_pos[6].index, spe_pos[6].subindex, &arm.motor[i].offset.status_word, NULL};
             ec_pdo_entry_reg_t temp8 = {arm.motor[i].alias, arm.motor[i].buspos, ELMO_GOLD, spe_pos[7].index, spe_pos[7].subindex, &arm.motor[i].offset.ain, NULL};
             ec_pdo_entry_reg_t temp9 = {arm.motor[i].alias, arm.motor[i].buspos, ELMO_GOLD, spe_pos[8].index, spe_pos[8].subindex, &arm.motor[i].offset.current, NULL};
+            ec_pdo_entry_reg_t temp10 = {arm.motor[i].alias, arm.motor[i].buspos, ELMO_GOLD, spe_pos[9].index, spe_pos[9].subindex, &arm.motor[i].offset.voltage, NULL};
+            ec_pdo_entry_reg_t temp11 = {arm.motor[i].alias, arm.motor[i].buspos, ELMO_GOLD, spe_pos[10].index, spe_pos[10].subindex, &arm.motor[i].offset.demond_position, NULL};
 
             domain[dm_index].domain_reg.push_back(temp1);
             domain[dm_index].domain_reg.push_back(temp2);
@@ -467,6 +474,8 @@ int leftarmInit(bodypart &arm, ec_master_t *m, int dm_index, EC_position * motor
             domain[dm_index].domain_reg.push_back(temp7);
             domain[dm_index].domain_reg.push_back(temp8);
             domain[dm_index].domain_reg.push_back(temp9);
+            domain[dm_index].domain_reg.push_back(temp10);
+            domain[dm_index].domain_reg.push_back(temp11);
 
             arm.motor[i].sc_dig_out = ecrt_master_slave_config(m, arm.motor[i].alias, arm.motor[i].buspos, ELMO_GOLD);
             if (!arm.motor[i].sc_dig_out)
@@ -1683,18 +1692,32 @@ void readArmData(bodypart & arm)
 {
     int i;
     int motornum = arm.motornum;
-    for (i = 0; i < motornum; i++)
+    int vol_rec = 0;
+    for (i = 0, vol_rec = 0; i < motornum; i++)
     {
         if (arm.motor_use[i] == 1)
         {
             arm.motor[i].act_position = (int)arm.dir[i] * (EC_READ_S32(domain[arm.dm_index].domain_pd + arm.motor[i].offset.act_position) - arm.motor[i].start_pos) + int((arm.startJointAngle[i]) * arm.jointGear[i]);
             arm.motor[i].act_current = (double)EC_READ_S16(domain[arm.dm_index].domain_pd + arm.motor[i].offset.current)/1000.0 * arm.motor[i].CL;
             arm.motor[i].ain = EC_READ_U32(domain[arm.dm_index].domain_pd + arm.motor[i].offset.ain);
+            // rt_printf("id:%d, ad:%d\n", i, arm.motor[i].ain);
+            arm.motor[i].act_voltage = (double)EC_READ_U32(domain[arm.dm_index].domain_pd + arm.motor[i].offset.voltage)/1000.0;
+            // arm.motor[i].demond_position = EC_READ_S32(domain[arm.dm_index].domain_pd + arm.motor[i].offset.target_position);
+            arm.motor[i].demond_position = EC_READ_S32(domain[arm.dm_index].domain_pd + arm.motor[i].offset.demond_position);
+
+            if (vol_rec == 0){
+                arm.act_voltage = arm.motor[i].act_voltage;
+                vol_rec = 1;
+            }
         }
         else
         {
             arm.motor[i].act_position = 0;
+            arm.motor[i].act_current = 0;
+            arm.motor[i].ain = 0;
+            arm.act_voltage = 0;
         }
+
         
         // printf("%d\n", arm.motor[i].act_position);
         if (arm.motor[i].first_time == 0) // 初次进入，记录开机时刻位置作为期望位置
@@ -1775,7 +1798,7 @@ void clearForceSensor(ft_sensor &endft)
 }
 
 /*
- * 读手臂电机反馈数据，输入左臂或右臂
+ * 读底盘反馈数据
  */
 void readChassisData(bodypart & leg, trackpart & trc)
 {
@@ -1946,7 +1969,7 @@ void ctrlArmMotor(bodypart &arm)
                                     {
                                         brake_output = 0x10000;
                                         EC_WRITE_U32(domain[arm.dm_index].domain_pd + arm.motor[i].offset.DO, brake_output);  // 上使能成功解除抱闸
-                                        arm.motor[i].ref_position = arm.motor[i].act_position - 1.0 * DEG2RAD * arm.jointGear[i] / arm.gearRatio[i];  // 不使用抱闸动作
+                                        arm.motor[i].ref_position = arm.motor[i].act_position - 1.0 * DEG2RAD * arm.jointGear[i] / arm.gearRatio[i];  // 使用抱闸动作
                                         arm.motor[i].plan_cnt = 0;
                                         arm.motor[i].servo_state = 2; 
                                     }
@@ -2182,6 +2205,14 @@ void ctrlArmMotor(bodypart &arm)
         /********************** 填写指令，等待发送 **********************/
             EC_WRITE_S32(domain[arm.dm_index].domain_pd + arm.motor[i].offset.target_position,  (int)(arm.dir[i] * arm.motor[i].this_send) + arm.motor[i].start_pos - int(arm.dir[i] * arm.startJointAngle[i] * arm.jointGear[i]));
             // printf("%f, %f, %d\n",arm.jointPos[i], arm.motor[i].exp_position, (int)arm.motor[i].this_send + arm.motor[i].start_pos - int(arm.startJointAngle[i] * arm.jointGear[i]));
+            
+            if (i == 0){
+                RTIME thistime;
+                thistime = rt_timer_read();
+                fprintf(fp, "%lf:target: %x, demond: %x, act: %x\n", thistime/1e9, (int)(arm.dir[i] * arm.motor[i].this_send) + arm.motor[i].start_pos - int(arm.dir[i] * arm.startJointAngle[i] * arm.jointGear[i]), arm.motor[i].demond_position, int((arm.motor[i].act_position - int((arm.startJointAngle[i]) * arm.jointGear[i])) * arm.dir[i]) + arm.motor[i].start_pos);
+                
+                count ++;
+            }
         }
 
         arm.motor[i].last_actposition = arm.motor[i].act_position;
@@ -2619,7 +2650,7 @@ void ctrlTrackMotor(trackpart &trc)
         /********************** 填写指令，等待发送 **********************/ // ！！！！！！！！！
         EC_WRITE_S32(domain[trc.dm_index].domain_pd + trc.motor[i].offset.target_velocity, int(trc.motor[i].this_send));
     }
-    fprintf(fp, "%f, %f, %f, %d\n", trc.motor[1].exp_velocity, trc.chassisVel_cmd[0], trc.chassisVel_cmd[1], int(trc.motor[i].this_send) );
+    // fprintf(fp, "%f, %f, %f, %d\n", trc.motor[1].exp_velocity, trc.chassisVel_cmd[0], trc.chassisVel_cmd[1], int(trc.motor[i].this_send) );
    
 
 }
@@ -2642,7 +2673,7 @@ void check_follow(bodypart & arm, double timeout)
 void realtime_proc(void *arg)
 {
     // 系统时间
-    RTIME now, previous, period, start_time;
+    RTIME now, previous, period, start_time, totaltime, last_moment;
     start_time = rt_timer_read();
 
     rt_task_set_periodic(NULL, TM_NOW, RTIME(ctl_period)); // unit :ns
@@ -2678,12 +2709,13 @@ void realtime_proc(void *arg)
     double pose07[6];
     double jointrefpos[7];
     double beta_cmd;
+    
 
     while (run)
     {
         rt_task_wait_period(NULL);      // 等待定时周期
         previous = rt_timer_read();     // 获取运行周期开始时间
-
+        
         // 接收 EtherCAT 帧
         for ( i =0; i< ETHERCAT_MAX; i++)
         {
@@ -2693,8 +2725,6 @@ void realtime_proc(void *arg)
                 ecrt_domain_process(domain[i].domain);
             }
         }
-
-        // printf("222\n");
 
         switch (run_state)
         {
@@ -3652,7 +3682,7 @@ void realtime_proc(void *arg)
                 {
                     leftarm.state = ON_MOVE_FOLLOW;
                     leftarm.movefollowCnt = 0;
-		    leftarm.betaExp = beta_cmd;
+		            leftarm.betaExp = beta_cmd;
                     for (i = 0; i< 6; i++)
                     {
                         delta[i] = speed[i] * 0.02;     // 遥控器发送周期大致40ms
@@ -3700,7 +3730,7 @@ void realtime_proc(void *arg)
                 {
                     rightarm.state = ON_MOVE_FOLLOW;
                     rightarm.movefollowCnt = 0;
-		    rightarm.betaExp = beta_cmd;
+		            rightarm.betaExp = beta_cmd;
                     for (i = 0; i< 6; i++)
                     {
                         delta[i] = speed[i] * 0.02;         // 遥控器发送周期大致40ms                                                                                                                                                        ;
@@ -3769,7 +3799,7 @@ void realtime_proc(void *arg)
                     rightarm.teachEn = 1;
                     printf("rightarm teach enable\n");
                 }
-		break;
+		        break;
             }
 
             case TEACH_DIS:
@@ -3792,7 +3822,7 @@ void realtime_proc(void *arg)
                     rightarm.teachEn = 0;
                     printf("rightarm teach disable\n");
                 }
-break;
+                break;
             }
 
             case LAMP_ON:
@@ -3866,18 +3896,24 @@ break;
       
         now = rt_timer_read();
         period = (now - previous) / 1000; //us
+        leftarm.time_elapsed = double((now - start_time) / 1000000); //ms
 
-        static time_t prev_second = 0;
-        struct timeval tv;
-        gettimeofday(&tv, 0);
-        if (tv.tv_sec != prev_second)
-        {
+        // static time_t prev_second = 0;
+        // struct timeval tv;
+        // gettimeofday(&tv, 0);
+        // if (tv.tv_sec != prev_second)
+        // {
+        //     // printf( "AKD: Total time: %ldms, Loop time : %ldus,%d,%f,%f\n", (long)(now - start_time)/1000000, (long)period, rightarm.motor[0].act_position, rightarm.motor[0].exp_position, rightarm.motor[0].act_current);
+        //     prev_second = tv.tv_sec;
+        // }
 
-            // printf( "AKD: Total time: %ldms, Loop time : %ldus,%d,%f,%f\n", (long)(now - start_time)/1000000, (long)period, rightarm.motor[0].act_position, rightarm.motor[0].exp_position, rightarm.motor[0].act_current);
-            prev_second = tv.tv_sec;
-        }
-        // printf( "AKD: Loop time : %ldus\n",(long)period);
+        // printf("Timer peroid: %luus Loop time: %ldus\n", long(previous - last_moment)/1000, (long)period);
+        // fprintf(fp, "Timer peroid: %luus Loop time: %ldus\n", long(previous - last_moment)/1000, (long)period);
+        last_moment = previous;
 
+        // if (leftarm.time_elapsed > 30000){
+        //     break;
+        // }
     }
 
     regfree(&reg);
