@@ -209,7 +209,7 @@ void moveLPoseUnchanged(double angleInit[7], const double locationFinal[3], doub
  *                   speedRate：机械臂最大速度比例，取值0~1，用于调节机械臂最大速度
  * 输出--------------angleByPlanningL：返回多组离散关节角，每0.01s发送给驱动器一组
  */
-void moveLPoseChanged(bodypart &arm, double poseFinal[6], double speedRate)
+void moveLPoseChanged(bodypart &arm, double Tfinal[16], double speedRate)
 {
     double RRelative[9];
     double relativeRot[9];
@@ -217,18 +217,16 @@ void moveLPoseChanged(bodypart &arm, double poseFinal[6], double speedRate)
     double betaFinal;
     double angleFinal_data[8];
     int angleFinal_size[2];
-    double Tfinal[16];
     double poseInit[16];
 
-    TfromPose(poseFinal, Tfinal);
+    // TfromPose(poseFinal, Tfinal);
 
     double rotInit[9],rotFinal[9],rotInit_t[9];
     /* 初始化 */
     ForwardKinematics(arm.jointPos, poseInit);
 
-
     rotfromT(poseInit, rotInit);
-    rotfromT(poseFinal, rotFinal);
+    rotfromT(Tfinal, rotFinal);
     matrixTrans(rotInit, 3, 3, rotInit_t);
     matrixMultiply(rotFinal, 3, 3, rotInit_t,3, 3, relativeRot);
     
@@ -241,8 +239,9 @@ void moveLPoseChanged(bodypart &arm, double poseFinal[6], double speedRate)
     betaInit = FindBeta(arm.jointPos);
 
     printf_d(arm.jointPos,7);
+    printf_d(Tfinal, 16);
     printf("betainit: %f\n",betaInit);
-    InverseKinematics(arm.jointPos, poseFinal, -M_PI, 0.1, M_PI, angleFinal_data, angleFinal_size); /* 返回1x8矩阵，最后一个为beta值 */
+    InverseKinematics(arm.jointPos, Tfinal, betaInit-0.2, 0.01, betaInit + 0.2, angleFinal_data, angleFinal_size); /* 返回1x8矩阵，最后一个为beta值 */
     betaFinal = angleFinal_data[7];
 
     printf("betafinal: %f\n",betaFinal);
@@ -250,11 +249,12 @@ void moveLPoseChanged(bodypart &arm, double poseFinal[6], double speedRate)
 
     double locationFinal[3];
     memcpy(arm.locationInit, *(double(*)[3]) & poseInit[12], sizeof(arm.locationInit));
-    memcpy(locationFinal, *(double(*)[3]) & poseFinal[12], sizeof(locationFinal));
-    arm.locationDelta[0] = arm.locationInit[0] - locationFinal[0];
-    arm.locationDelta[1] = arm.locationInit[1] - locationFinal[1];
-    arm.locationDelta[2] = arm.locationInit[2] - locationFinal[2];
+    memcpy(locationFinal, *(double(*)[3]) & Tfinal[12], sizeof(locationFinal));
+    arm.locationDelta[0] = -arm.locationInit[0] + locationFinal[0];
+    arm.locationDelta[1] = -arm.locationInit[1] + locationFinal[1];
+    arm.locationDelta[2] = -arm.locationInit[2] + locationFinal[2];
     double distance = b_norm(arm.locationDelta);
+    printf("deltalocation:%f\n", distance);
 
     /* 返回1x8矩阵，最后一个为beta值 */
     /* 对β进行S曲线规划,并求出旋转过程所需时间Tmax */
@@ -637,7 +637,7 @@ int forceUpdate(bodypart &arm, int type, double dt, int dir_enable[6])
             ft[i] = arm.endft.ft[i];
 
             // 力超出限幅值，保护
-            if (ft[i] > force_flim[i])
+            if (fabs(ft[i]) > force_flim[i])
             {
                 arm.fctrl.Switch = 2;
                 printf("Out of Force Limit!! Stop it\n");

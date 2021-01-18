@@ -8,10 +8,10 @@
 # include "control.h"
 /******************* 网络参数 *******************/
 
-# define CTRL_IP "192.168.50.3" 
+# define CTRL_IP "192.168.1.102" 
 # define CTRL_PORT 8001
 
-# define Nvidia_IP "192.168.1.100" 
+# define Nvidia_IP "192.168.1.101" 
 # define Nvidia_PORT 8002
 
 # define ROBOT_IP "192.168.1.103" //"10.1.76.247"// 192.168.50.14  192.168.8.11

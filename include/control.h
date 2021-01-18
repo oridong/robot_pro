@@ -36,6 +36,7 @@
 // 机械臂状态机， IDLE状态有至少一个电机使能，如果没有电机使能将会跳转到DISABLE状态
 // 开始运动之后机械臂将会处于ON_MOVEJ，ON_MOVEJ，ON_MOVE_FOLLOW状态之一
 // 履带会处于ON_CARMOVE状态
+# define ERROR -2
 # define DISABLE -1
 # define IDLE 0
 # define ON_MOVEL 1

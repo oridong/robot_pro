@@ -89,7 +89,7 @@
 #define ETHERCAT_MAX 4
 int ethercat_use[ETHERCAT_MAX] = {1, 0, 0, 0};
 int bodypart_use[5] = {1, 0,  0, 0, 0};
-int leftarm_use_motor[8] = {1, 0, 0, 0, 0, 0, 0, 0};
+int leftarm_use_motor[8] = {1, 1, 1, 1, 1, 1, 1, 1};
 int rightarm_use_motor[8] = {1, 1, 1, 1, 1, 0, 0, 0};
 int head_use_motor[3] = {0, 0, 1};
 int track_use_motor[4] = {1, 1, 1, 1};
@@ -125,8 +125,8 @@ const uint8_t headMotoritpTimes[] = {10, 10, 10};
 const uint8_t trackMotoritpTimes[] = {70, 70, 70, 70};
 const uint8_t legMotoritpTimes[] = {1, 50, 50, 50, 50};
 
-// 每个关节电机的安装位置偏置
-const double leftoffsetAngle[7] = {5.9651863174665865, 0.123045712266, 1.43972209997, 0.594982742005, 4.422179, 3.798304, 0.882806};        // 单位弧度
+// 每个关节电机的安装位置偏置//5.9651863174665865
+const double leftoffsetAngle[7] = {5.179788154069138, 0.123045712266, 1.43972209997, 0.594982742005, 4.422179, 3.798304, 0.882806};        // 单位弧度
 const double rightoffsetAngle[7] = {3.30862066301,0.994488607786,5.3351224575,2.12301850213,0.759043691692, 1.561895147609, 4.083897753344099};
 const double headoffsetAngle[3] = {2.339393, 2.365974, 0};
 const double legoffsetAngle[5] = {0, 0, 0, 0, 0};
@@ -204,13 +204,13 @@ double leg_fillter_esp[5] = {1.4, 1.4, 1.4, 1.4, 1.4};
 double leg_fillter_vlimit[5] = {PI/5, PI/3, PI/3, PI/3, PI/3};
 double leg_fillter_acclimit[5] = {2 * PI, 5 * PI, 5 * PI, 5 * PI, 5 * PI};
 
-float left_CL[7] = {6.0, 6.0, 3.0, 3.0, 1.5, 1.5, 1.5};
+float left_CL[7] = {11.0, 11.0, 7.0, 7.0, 5.0, 3.0, 3.0};
 float right_CL[7] = {6.0, 6.0, 3.0, 3.0, 1.5, 1.5, 1.5};
 float head_CL[3] = {1.5, 1.5, 1.5};
 float track_CL[4] = {25.0, 35.0, 35.0, 25.0};
 float leg_CL[5] = {10.0, 25.0, 25.0 , 25.0, 25.0};
 
-float left_PL[7] = {9.0, 9.0, 9.0, 9.0, 6.0, 6.0, 6.0};
+float left_PL[7] = {15.0, 15.0, 12.0, 12.0, 8.0, 5.0, 5.0};
 float right_PL[7] = {9.0, 9.0, 9.0, 9.0, 6.0, 6.0, 6.0};
 float head_PL[3] = {4.0, 4.0, 4.0};
 float track_PL[4] = {50.0, 60.0, 60.0, 50.0};
@@ -330,7 +330,7 @@ void rt_check_domain_state(ec_domain_t *a, ec_domain_state_t result)
     result = ds;
 }
 
-void rt_check_master_state(ec_master_t *m, ec_master_state_t result)
+void rt_check_master_state(ec_master_t *m, ec_master_state_t &result)
 {
     ec_master_state_t ms;
 
@@ -351,7 +351,7 @@ void rt_check_master_state(ec_master_t *m, ec_master_state_t result)
         rt_printf("Link is %s.\n", ms.link_up ? "up" : "down");
     }
 
-    result = ms;
+    memcpy(&result, &ms, sizeof(ec_master_state_t));
 }
 
 void nsleep(long nano)
@@ -1265,7 +1265,6 @@ int FT_sensor_init(bodypart &arm, ec_master_t * m, int dm_index, EC_position pos
     uint32_t data1 = 0x001;
     uint32_t abort_code;
     
-
     uint8_t result[4];
     size_t target_size = 4;
     size_t result_size;
@@ -1299,10 +1298,8 @@ int FT_sensor_init(bodypart &arm, ec_master_t * m, int dm_index, EC_position pos
 
     memset(arm.endft.offsetft, 0, sizeof(arm.endft.offsetft));      // 将偏置设为零
     
-    return 1;
-
     // 4、从0x6000:0x03 读Sdo 试读力传感器数据Fz
-    // if (ecrt_master_sdo_upload(m, pos.buspos, 0x6000, 0x03, result, target_size, &result_size, &abort_code)) // 读SDO， 0x2F41:0 为用户应用配置字
+    // if (ecrt_master_sdo_upload(m, pos.buspos, 0x6000, 0x02, result, target_size, &result_size, &abort_code)) // 读SDO， 0x2F41:0 为用户应用配置字
     // {
     //     fprintf(stderr, "Failed to get sdo data.\n");
     //     return -1;
@@ -1310,6 +1307,7 @@ int FT_sensor_init(bodypart &arm, ec_master_t * m, int dm_index, EC_position pos
     // data1 = result[3] << 24 | result[2] << 16 | result[1] << 8 | result[0];
     // printf("%f\n",(float)data1/1000000.0);
 
+    return 1;
 }
 
 /*
@@ -1486,6 +1484,7 @@ uint8_t changeOneMotorState(bodypart &arm, int8_t id, uint8_t state)
     if ((m->status & 0x004f) == 0x0008) // Fault
     {
         printf("%d in Fault state\n", id);
+        arm.state = ERROR;
         EC_WRITE_U16(domain[dm_index].domain_pd + m->offset.ctrl_word, FaultReset);
         return 0;
     }
@@ -1662,6 +1661,7 @@ void stopArmMotor(bodypart & arm)
     {
         arm.motor[i].exp_position = arm.motor[i].act_position;
         arm.motor[i].exp_position_kdm = arm.motor[i].act_position;
+        arm.motor[i].exp_position_kdm_v = 0.0;
         arm.motor[i].ref_position = arm.motor[i].act_position;
         arm.motor[i].plan_cnt = 0;
         // arm.motor[i].plan.clear();
@@ -1902,6 +1902,8 @@ void ctrlArmMotor(bodypart &arm)
     uint8_t servoStateAll = 0;
     int ret;
     uint32_t brake_output;
+
+    static uint16_t waittime = 0;
     
     switch (arm.state) // 根据不同功能得到motor.ref_position的值，进行不同种类的控制
     {
@@ -2036,9 +2038,10 @@ void ctrlArmMotor(bodypart &arm)
                 location[0] = arm.locationInit[0] + arm.locationDelta[0] * t_line;
                 location[1] = arm.locationInit[1] + arm.locationDelta[1] * t_line;
                 location[2] = arm.locationInit[2] + arm.locationDelta[2] * t_line;
+                printf_d(location, 3);
 
                 beta_line = S_position(arm.s_beta.time, arm.s_beta.para);
-                equat_line[0] = S_position(arm.s_equat.time, arm.s_equat.para);
+                equat_line[0] = arm.rEquivalent[0];//S_position(arm.s_equat.time, arm.s_equat.para);
                 equat_line[1] = arm.rEquivalent[1];
                 equat_line[2] = arm.rEquivalent[2];
                 equat_line[3] = arm.rEquivalent[3];
@@ -2048,9 +2051,14 @@ void ctrlArmMotor(bodypart &arm)
                 matrixMultiply(rot_, 3, 3, arm.rotInit, 3, 3, R);
                 TfromRotPos(R, location, pose_line);
 
-                InverseKinematics(arm.jointPos, pose_line, beta_line, 0, beta_line, angle_planned, angle_planned_size);
-                // printf("%f,%f,%f,%f,%f,%f,%f\n", arm.jointPos[0], arm.jointPos[1], arm.jointPos[2], arm.jointPos[3], arm.jointPos[4], arm.jointPos[5], arm.jointPos[6]);
-                printf("%f\n", arm.jointPos[7]);
+                printf("new\n");
+                printf_d(pose_line, 16);
+                printf("betafind: %f\n", FindBeta(arm.jointPos));
+
+                InverseKinematics(arm.jointPos, pose_line, beta_line-0.1, 0.01, beta_line+0.1, angle_planned, angle_planned_size);
+                printf_d(angle_planned, 8);
+                printf("%f,%f,%f,%f,%f,%f,%f  ", arm.jointPos[0], arm.jointPos[1], arm.jointPos[2], arm.jointPos[3], arm.jointPos[4], arm.jointPos[5], arm.jointPos[6]);
+                printf("%f\n", beta_line);
 
                 if (angle_planned_size[1] == 8)
                 {
@@ -2064,7 +2072,7 @@ void ctrlArmMotor(bodypart &arm)
                 else{
                     printf("Inverse Kinematics Failed\n");
                 }
-                printf("%f,%f,%f,%f,%f,%f,%f\n",angle_planned[0], angle_planned[1], angle_planned[2], angle_planned[3], angle_planned[4], angle_planned[5], angle_planned[6] );
+                // printf("%f,%f,%f,%f,%f,%f,%f\n",angle_planned[0], angle_planned[1], angle_planned[2], angle_planned[3], angle_planned[4], angle_planned[5], angle_planned[6] );
                 arm.s_line.time += arm.s_line.deltaTime;
                 arm.s_beta.time += arm.s_beta.deltaTime;
                 arm.s_equat.time += arm.s_equat.deltaTime;
@@ -2102,6 +2110,7 @@ void ctrlArmMotor(bodypart &arm)
                 {
                     arm.motor[i].ref_position = S_position(arm.motor[i].sp.time, arm.motor[i].sp.para) * arm.jointGear[i];
                     arm.motor[i].sp.time += arm.motor[i].sp.deltaTime;
+                    // printf("%f,", arm.motor[i].ref_position);
                 }
                 arm.s_planTimes --;
                 printf("%d\n",arm.s_planTimes);     // 倒计时
@@ -2118,7 +2127,22 @@ void ctrlArmMotor(bodypart &arm)
 
         case ON_MOVETEST:
             // test计时器累加
-            arm.test_time += 0.001;
+            if (cos(arm.test_time * PI / arm.test_T) >= cos(0.0005)){
+                waittime ++;
+            }
+
+            if (waittime == 0){
+                arm.test_time += 0.001;
+            }
+            else if (waittime == 2000)
+            {
+                waittime = 0;
+                arm.test_time += 0.001;
+            }
+            
+            // printf("%d, %d, %f\n", cos(arm.test_time * PI / arm.test_T) == 1, waittime, arm.test_time);
+
+            
         break;
 
         case ON_MOVE_FOLLOW:
@@ -2196,7 +2220,7 @@ void ctrlArmMotor(bodypart &arm)
         arm.motor[i].this_send = arm.motor[i].plan_param[0] + arm.motor[i].plan_param[1] * arm.motor[i].plan_run_time + arm.motor[i].plan_param[2] * arm.motor[i].plan_run_time * arm.motor[i].plan_run_time + arm.motor[i].plan_param[3] * arm.motor[i].plan_run_time * arm.motor[i].plan_run_time * arm.motor[i].plan_run_time;
 
         arm.motor[i].plan_cnt++;
-        if (arm.motor[i].plan_cnt == arm.motor[i].itp_period_times)
+        if (arm.motor[i].plan_cnt >= arm.motor[i].itp_period_times)
         {
             arm.motor[i].plan_cnt = 0;
         }
@@ -2206,16 +2230,15 @@ void ctrlArmMotor(bodypart &arm)
             EC_WRITE_S32(domain[arm.dm_index].domain_pd + arm.motor[i].offset.target_position,  (int)(arm.dir[i] * arm.motor[i].this_send) + arm.motor[i].start_pos - int(arm.dir[i] * arm.startJointAngle[i] * arm.jointGear[i]));
             // printf("%f, %f, %d\n",arm.jointPos[i], arm.motor[i].exp_position, (int)arm.motor[i].this_send + arm.motor[i].start_pos - int(arm.startJointAngle[i] * arm.jointGear[i]));
             
-            if (i == 0){
+            if (i == 1){
                 RTIME thistime;
                 thistime = rt_timer_read();
-                fprintf(fp, "%lf:target: %x, demond: %x, act: %x\n", thistime/1e9, (int)(arm.dir[i] * arm.motor[i].this_send) + arm.motor[i].start_pos - int(arm.dir[i] * arm.startJointAngle[i] * arm.jointGear[i]), arm.motor[i].demond_position, int((arm.motor[i].act_position - int((arm.startJointAngle[i]) * arm.jointGear[i])) * arm.dir[i]) + arm.motor[i].start_pos);
+                fprintf(fp, "%lf:target: %d, demond: %d, act: %d\n", thistime/1e9, (int)(arm.dir[i] * arm.motor[i].this_send) + arm.motor[i].start_pos - int(arm.dir[i] * arm.startJointAngle[i] * arm.jointGear[i]), arm.motor[i].demond_position, int((arm.motor[i].act_position - int((arm.startJointAngle[i]) * arm.jointGear[i])) * arm.dir[i]) + arm.motor[i].start_pos);
                 
                 count ++;
             }
         }
 
-        arm.motor[i].last_actposition = arm.motor[i].act_position;
     }
     // fprintf(fp, "%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n", arm.motor[0].this_send/arm.jointGear[0], arm.motor[1].this_send/arm.jointGear[1], arm.motor[2].this_send/arm.jointGear[2], arm.motor[3].this_send/arm.jointGear[3], arm.motor[4].this_send/arm.jointGear[4], arm.motor[5].this_send/arm.jointGear[5],arm.motor[6].this_send/arm.jointGear[6],arm.endft.ft[0],arm.endft.ft[1],arm.endft.ft[2],arm.endft.ft[3],arm.endft.ft[4],arm.endft.ft[5]);
    
@@ -2835,12 +2858,14 @@ void realtime_proc(void *arg)
 
             /********************** 接受并解析指令 根据指令进行控制 **********************/
             cmd = robotReceiveCommand();
+            fprintf(fp, "cmd:%d\n", cmd.cmd_mode);
 
             switch (cmd.cmd_mode)
             {
             
             case STOP_MOVE:
             {
+
                 if (!CM_Atoi(cmd.param_list[0], left_right))
                     break;
                 if (left_right == ALL)
@@ -3256,7 +3281,9 @@ void realtime_proc(void *arg)
                     for (i = 0; i< leftarm.motornum; i++)
                     {
                         leftarm.motor[i].itp_period_times = 10;
+                        printf("%f ", leftarm.motor[i].ref_position/leftarm.jointGear[i]);
                     }
+                    leftarm.itp_period_times = 10;
                     // if (leftarm.state == IDLE)       // 仿真不上伺服moveJ
                     {
                         printf("Busy:in movej\n");
@@ -3325,12 +3352,11 @@ void realtime_proc(void *arg)
 
             case MOVEL:
             {
-                printf("in moveL\n");
                 if (!CM_Atoi(cmd.param_list[0], left_right))
                     break;
                 if (!CM_Atof(cmd.param_list[cmd.param_cnt - 1], speedRate))
                     break;
-                if (cmd.param_cnt == 8)     // 给定关节角
+                if (cmd.param_cnt == 8)     // 给定期望位姿
                 {
                     for (i = 0;i < 6; i++)
                     {
@@ -3341,15 +3367,26 @@ void realtime_proc(void *arg)
                 }
                 if (left_right == LEFT)
                 {
-                    if (leftarm.state == IDLE)
+                    for (i = 0; i< leftarm.motornum; i++)
                     {
+                        leftarm.motor[i].itp_period_times = 10;
+                    }
+                    // if (leftarm.state == IDLE)
+                    {
+                        printf("Busy: in moveL\n");
                         moveLPoseChanged(leftarm, Tfinal, speedRate);       // 22423us 0.1-19520us 去掉findbeta 521us
                     }
+                    
                 }
                 else if (left_right == RIGHT)
                 {
-                    if (rightarm.state == IDLE)
+                    for (i = 0; i< rightarm.motornum; i++)
                     {
+                        rightarm.motor[i].itp_period_times = 10;
+                    }
+                    // if (rightarm.state == IDLE)
+                    {
+                        printf("Busy: in moveL\n");
                         moveLPoseChanged(rightarm, Tfinal, speedRate);
                     }
                 }
@@ -3371,6 +3408,7 @@ void realtime_proc(void *arg)
                 }
                 else
                 {
+                    printf("InValid Input\n");
                     break;
                 }
                 
@@ -3446,7 +3484,6 @@ void realtime_proc(void *arg)
                         }
                     }
                     TfromPose(poseFinal, Tfinal);
-
                 }
                 else
                 {
@@ -3506,6 +3543,8 @@ void realtime_proc(void *arg)
                             }
                         }
                     }
+
+                    printf("Rec to force\n");
                     leftarm.fctrl.Switch = -2;      // 第一周期需要清除力传感器，力控准备
                     memset(leftarm.fctrl.totalP, 0, sizeof(leftarm.fctrl.totalP));
                     memset(leftarm.fctrl.totalV, 0, sizeof(leftarm.fctrl.totalV));
@@ -3515,6 +3554,7 @@ void realtime_proc(void *arg)
                     leftarm.fctrl.totalTrans[5] = 1.0;
                     leftarm.fctrl.totalTrans[10] = 1.0;
                     leftarm.fctrl.totalTrans[15] = 1.0;
+                    leftarm.betaExp = FindBeta(leftarm.jointPos);
 
                     clearForceSensor(leftarm.endft);     // 清零力传感器
                 }
@@ -3573,6 +3613,8 @@ void realtime_proc(void *arg)
                     rightarm.fctrl.totalTrans[5] = 1.0;
                     rightarm.fctrl.totalTrans[10] = 1.0;
                     rightarm.fctrl.totalTrans[15] = 1.0;
+                    rightarm.betaExp = FindBeta(rightarm.jointPos);
+
                     clearForceSensor(rightarm.endft);     // 清零力传感器
                    
                 }
@@ -3722,6 +3764,10 @@ void realtime_proc(void *arg)
                     else
                     {
                         printf("inverse kinematics failed\n");
+                        for (i = 0; i< leftarm.motornum; i++)
+                        {
+                            leftarm.motor[i].itp_period_times = 10;
+                        }
                         leftarm.state = IDLE;
                         leftarm.motor[i].ref_position = leftarm.motor[i].act_position;
                     }
@@ -3847,6 +3893,11 @@ void realtime_proc(void *arg)
                 break;
             }
 
+            now = rt_timer_read();
+            ecrt_master_application_time(master[0], (long long)now);
+            ecrt_master_sync_reference_clock(master[0]);
+            ecrt_master_sync_slave_clocks(master[0]);
+            
             /********************** 遍历各身体部位进行控制 **********************/
             if (bodypart_use[LEFT]){
                 ctrlArmMotor(leftarm);       // 控制左臂电机运动
@@ -3867,6 +3918,11 @@ void realtime_proc(void *arg)
             }
 
             robotSendFeedback(leftarm, rightarm, head, leg, track);
+
+            for (i = 0; i< 7; i++){
+                leftarm.motor[i].last_actposition = leftarm.motor[i].act_position;
+                rightarm.motor[i].last_actposition = rightarm.motor[i].act_position;
+            }
 
             break;
 
@@ -3898,14 +3954,18 @@ void realtime_proc(void *arg)
         period = (now - previous) / 1000; //us
         leftarm.time_elapsed = double((now - start_time) / 1000000); //ms
 
-        // static time_t prev_second = 0;
-        // struct timeval tv;
-        // gettimeofday(&tv, 0);
-        // if (tv.tv_sec != prev_second)
-        // {
-        //     // printf( "AKD: Total time: %ldms, Loop time : %ldus,%d,%f,%f\n", (long)(now - start_time)/1000000, (long)period, rightarm.motor[0].act_position, rightarm.motor[0].exp_position, rightarm.motor[0].act_current);
-        //     prev_second = tv.tv_sec;
-        // }
+        static time_t prev_second = 0;
+        struct timeval tv;
+        gettimeofday(&tv, 0);
+        if (tv.tv_sec != prev_second)
+        {
+            // printf("program time elapsed: %.1fs, test time elapsed: %.1fs\n", leftarm.time_elapsed/1000.0, leftarm.test_time);
+            ec_master_state_t a;
+            rt_check_master_state(master[0], master_state[0]);
+            
+            // printf( "AKD: Total time: %ldms, Loop time : %ldus,%d,%f,%f\n", (long)(now - start_time)/1000000, (long)period, rightarm.motor[0].act_position, rightarm.motor[0].exp_position, rightarm.motor[0].act_current);
+            prev_second = tv.tv_sec;
+        }
 
         // printf("Timer peroid: %luus Loop time: %ldus\n", long(previous - last_moment)/1000, (long)period);
         // fprintf(fp, "Timer peroid: %luus Loop time: %ldus\n", long(previous - last_moment)/1000, (long)period);
@@ -4050,6 +4110,8 @@ int main(int argc, char *argv[])
             }
         }
     }
+
+    ecrt_slave_config_dc(leftarm.motor[0].sc_dig_out, 0x700, 1000000, 0, 0, 0);
   
     printf("Activating master...\n");
     for (i = 0; i< ETHERCAT_MAX; i ++)
