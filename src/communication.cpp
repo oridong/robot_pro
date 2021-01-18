@@ -6,6 +6,7 @@ int sockfd;
 struct sockaddr_in ctrl_addr;
 struct sockaddr_in received_addr;
 struct sockaddr_in nvidia_addr;
+
 command cmd;
 char error_buf[64];
 static const char *pattern = "^(\\w+)\\((.*)\\)$";
@@ -101,14 +102,14 @@ command robotReceiveCommand(void)
         if (z == REG_NOMATCH) // success = 0
         {
             printf("nomatch\n");
-            cmd.cmd_mode = -1;
+            cmd.cmd_mode = ERROR_MATCH;
             return cmd;
         }
         else if (z != 0)
         {
             regerror(z, &reg, error_buf, sizeof(error_buf));
             fprintf(stderr, "%s: regcom('%s')\n", error_buf, recv_buf);
-            cmd.cmd_mode = -1;
+            cmd.cmd_mode = ERROR_MATCH;
             return cmd;
         }
 
@@ -153,7 +154,7 @@ command robotReceiveCommand(void)
             }
             else
             {
-                cmd.cmd_mode = -1;
+                cmd.cmd_mode = ERROR_MATCH;
             }
             z ++;
         }
@@ -165,13 +166,13 @@ command robotReceiveCommand(void)
     }
     else
     {
-        cmd.cmd_mode = -2;
+        cmd.cmd_mode = NO_RECV;
         return cmd;
     }
     
 }
 
-void robotSendFeedback(bodypart la, bodypart ra, bodypart head, bodypart leg, trackpart trc)
+void robotSendFeedback(bodypart la)
 {
     int i = 0, j = 0;
 

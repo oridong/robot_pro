@@ -76,21 +76,6 @@ typedef struct
     unsigned int status2;
 } Offset_ft;
 
-/* 速度模式电机EtherCAT，Pdo地址偏移  */
-typedef struct
-{
-    unsigned int target_velocity;
-    unsigned int ctrl_word;
-    unsigned int mode_operation;
-    unsigned int act_position;
-    unsigned int DI;
-    unsigned int act_velocity;
-    unsigned int status_word;
-    unsigned int current;
-    unsigned int voltage;
-} Offset_vel;
-
-
 /* EtherCAT domain结构体， 方便组装domain*/
 typedef struct 
 {
@@ -171,38 +156,6 @@ typedef struct
     uint16_t itp_period_times;
 
 }Motor;
-
-typedef struct 
-{
-    uint16_t alias;
-    uint16_t buspos;
-    Offset_vel offset;
-    uint16_t status;  /* DS402 status register, without manufacturer bits */
-    ec_slave_config_t *sc_dig_out;
-
-    uint8_t mode;
-    uint8_t first_time;
-    uint8_t servo_cmd;
-    uint8_t servo_state;
-
-    int act_velocity; /* actual velocity in cnt */
-    int act_position;
-    double act_current; /* actual current */
-    double act_voltage; /* actual voltage */
-    double exp_velocity;   /* expect velocity in cnt */
-    double ref_velocity;
-    double this_send;
-
-    double CL;
-
-    splan sp;
-    std::vector<double> plan;
-    double plan_param[4];
-    uint16_t plan_cnt;
-    double plan_run_time;
-    uint16_t itp_period_times;
-
-}velMotor;
 
 /* 力传感器 结构体 */
 typedef struct 
@@ -286,26 +239,6 @@ typedef struct
     double act_voltage;
 
 }bodypart;
-
-typedef struct 
-{
-    velMotor motor[4];
-    uint8_t motornum;
-    int dm_index;       // ethercat domain 序号
-    double jointGear[4];
-    double jointVel[4];
-
-    double chassisVel_cmd[2];
-
-    uint16_t watchdog;
-    uint16_t itp_period_times;
-
-    // 测试
-    uint8_t motor_use[4];
-
-    int state;
-}trackpart;
-
 
 int FT_sensor_init(bodypart &arm, ec_master_t * m, int dm_index, EC_position pos);
 void readForceData(bodypart &arm);

@@ -4,12 +4,8 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
-                "/usr/xenomai/include/posix",
-                "/usr/xenomai/include",
                 "${workspaceFolder}/include",
-                "${workspaceFolder}/include/rt_type",
-                "/usr/include/c++/4.8",
-                "/usr/include/x86_64-linux-gnu/c++/4.8"
+                "${workspaceFolder}/include/rt_type"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/g++",
